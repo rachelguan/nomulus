@@ -36,9 +36,15 @@ import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Mapify;
 import com.googlecode.objectify.mapper.Mapper;
 import google.registry.model.Buildable;
+import google.registry.model.EppResource;
 import google.registry.model.annotations.ReportedOn;
+import google.registry.model.contact.ContactHistory;
+import google.registry.model.domain.DomainHistory;
+import google.registry.model.domain.DomainHistory.DomainHistoryId;
 import google.registry.model.registry.Registry;
 import google.registry.model.registry.label.DomainLabelMetrics.MetricsReservedListMatch;
+import google.registry.model.reporting.HistoryEntry;
+import google.registry.persistence.VKey;
 import google.registry.schema.replay.NonReplicatedEntity;
 import java.util.List;
 import java.util.Map;
@@ -294,6 +300,7 @@ public final class ReservedList
     return new Builder(clone(this));
   }
 
+
   /**
    * A builder for constructing {@link ReservedList} objects, since they are immutable.
    */
@@ -323,4 +330,12 @@ public final class ReservedList
       return setReservedListMap(getInstance().parse(lines));
     }
   }
+  /** Creates a {@link VKey} instance from a {@link Key} instance. */
+  public VKey<ReservedList> createVKey(Key<ReservedList> ofyKey) {
+    return VKey.create(
+        ReservedList.class,
+        this.revisionId,
+        Key.create(this));
+  }
+
 }
