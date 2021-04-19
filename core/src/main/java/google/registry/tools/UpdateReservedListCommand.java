@@ -41,6 +41,7 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
         this.shouldPublish == null ? existing.get().getShouldPublish() : this.shouldPublish;
     List<String> allLines = Files.readAllLines(input, UTF_8);
     DateTime now = new SystemClock().nowUtc();
+    ReservedList existingReservedList = existing.get();
     ReservedList.Builder updated =
         existing
             .get()
@@ -48,6 +49,8 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
             .setReservedListMapFromLines(allLines)
             .setLastUpdateTime(now)
             .setShouldPublish(shouldPublish);
-    reservedList = updated.build();
+    ReservedList updatedReservedList = updated.build();
+    stageEntityChange(existingReservedList, updatedReservedList);
+    reservedList = updatedReservedList;
   }
 }
