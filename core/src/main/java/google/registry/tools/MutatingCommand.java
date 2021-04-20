@@ -34,8 +34,6 @@ import com.googlecode.objectify.Key;
 import google.registry.model.ImmutableObject;
 import google.registry.persistence.VKey;
 import google.registry.schema.replay.SqlEntity;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;

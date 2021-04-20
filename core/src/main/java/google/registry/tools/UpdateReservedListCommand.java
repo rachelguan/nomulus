@@ -52,7 +52,10 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
             .setLastUpdateTime(now)
             .setShouldPublish(shouldPublish);
     ReservedList updatedReservedList = updated.build();
-    stageEntityChange(existingReservedList, updatedReservedList, VKey.create(ReservedList.class, "key", Key.create(existingReservedList)));
+    stageEntityChange(
+        existingReservedList,
+        updatedReservedList,
+        VKey.create(ReservedList.class, "key", Key.create(existingReservedList)));
     reservedList = updatedReservedList;
   }
 }
