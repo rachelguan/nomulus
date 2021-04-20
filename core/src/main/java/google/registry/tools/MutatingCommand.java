@@ -34,8 +34,6 @@ import com.googlecode.objectify.Key;
 import google.registry.model.ImmutableObject;
 import google.registry.persistence.VKey;
 import google.registry.schema.replay.SqlEntity;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -57,7 +55,9 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
     /** The possible types of mutation that can be performed on an entity. */
     public enum ChangeType {
-      CREATE, DELETE, UPDATE;
+      CREATE,
+      DELETE,
+      UPDATE;
 
       /** Return the ChangeType corresponding to the given combination of version existences. */
       public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
@@ -78,7 +78,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     final ImmutableObject newEntity;
 
     /** The key that points to the entity being changed. */
-    VKey<?> key;
+    final VKey<?> key;
 
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -92,33 +92,35 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
       // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
       // SQL key.
-
-      try {
-        Method createVKeyMethod = entity.getClass().getDeclaredMethod("createVKey");
-        key = (VKey<?>) createVKeyMethod.invoke(entity);
-      } catch (NoSuchMethodException e) {
-        key =
-            entity instanceof SqlEntity
-                ? VKey.from(Key.create(entity))
-                : VKey.createOfy(entity.getClass(), Key.create(entity));
-      } catch (IllegalAccessException | InvocationTargetException e) {
-        throw new RuntimeException(e);
-      }
+      key =
+          entity instanceof SqlEntity
+              ? VKey.from(Key.create(entity))
+              : VKey.createOfy(entity.getClass(), Key.create(entity));
     }
 
     /**
-     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity.
-     * This is a workaround to handle cases when a SqlEntity instance does not have 
-     * a primary key before being persisted.
+     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
+     * workaround to handle cases when a SqlEntity instance does not have a primary key before being
+     * persisted.
      */
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
-      // there needs to be a check to ensure key of old/new entity is same as OfyKey of the vkey
-      checkArgument(
-          type != ChangeType.UPDATE
-              || Key.create(oldEntity).equals(Key.create(newEntity))
-              || Key.create(oldEntity).equals(vkey.getOfyKey()),
-          "Both entity versions in an update must have the same Key.");
+      Key<?> oldKey = Key.create(oldEntity), newKey = Key.create(newEntity);
+      if (type == ChangeType.UPDATE) {
+        checkArgument(
+            oldKey.equals(newKey), "Both entity versions in an update must have the same Key.");
+        checkArgument(
+            oldKey.equals(vkey.getOfyKey()),
+            "The Key of the entity must be the same as the OfyKey of the vkey");
+      } else if (type == ChangeType.CREATE) {
+        checkArgument(
+            newKey.equals(vkey.getOfyKey()),
+            "Both entity versions in an update must have the same Key.");
+      } else if (type == ChangeType.DELETE) {
+        checkArgument(
+            oldKey.equals(vkey.getOfyKey()),
+            "The Key of the entity must be the same as the OfyKey of the vkey");
+      }
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;
       key = vkey;
@@ -138,8 +140,9 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     public String toString() {
       String changeText;
       if (type == ChangeType.UPDATE) {
-        String diffText = prettyPrintEntityDeepDiff(
-            oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
+        String diffText =
+            prettyPrintEntityDeepDiff(
+                oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
         changeText = Optional.ofNullable(emptyToNull(diffText)).orElse("[no changes]\n");
       } else {
         changeText = MoreObjects.firstNonNull(oldEntity, newEntity) + "\n";
@@ -233,8 +236,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
-   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-   * Note that both objects passed must correspond to versions of the same entity with the same key.
+   * Stages an entity change that will be applied by execute(). Both ImmutableObject instances must
+   * be some version of the same entity with the same key.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
@@ -251,9 +254,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
-   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-   * This method allows Vkey override, which adds support to cases of SqlEntity instances
-   * that do not have primary keys before being persisted.
+   * Stages an entity change which will be applied by execute(), with the support of Vkey override.
+   * It supports cases of SqlEntity instances that do not have primary keys before being persisted.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
