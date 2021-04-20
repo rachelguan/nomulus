@@ -78,7 +78,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     final ImmutableObject newEntity;
 
     /** The key that points to the entity being changed. */
-    VKey<?> key;
+    final VKey<?> key;
 
     public EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -107,11 +107,6 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
           "Both entity versions in an update must have the same Key.");
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;
-      ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
-
-      // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
-      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
-      // SQL key.
       key = vkey;
     }
 
