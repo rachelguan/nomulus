@@ -39,7 +39,6 @@ import google.registry.model.Buildable;
 import google.registry.model.annotations.ReportedOn;
 import google.registry.model.registry.Registry;
 import google.registry.model.registry.label.DomainLabelMetrics.MetricsReservedListMatch;
-import google.registry.persistence.VKey;
 import google.registry.schema.replay.NonReplicatedEntity;
 import java.util.List;
 import java.util.Map;
