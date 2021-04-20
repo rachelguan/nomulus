@@ -20,7 +20,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.beust.jcommander.Parameters;
 import com.google.common.base.Strings;
+import com.googlecode.objectify.Key;
 import google.registry.model.registry.label.ReservedList;
+import google.registry.persistence.VKey;
 import google.registry.util.SystemClock;
 import java.nio.file.Files;
 import java.util.List;
@@ -50,7 +52,7 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
             .setLastUpdateTime(now)
             .setShouldPublish(shouldPublish);
     ReservedList updatedReservedList = updated.build();
-    stageEntityChange(existingReservedList, updatedReservedList);
+    stageEntityChange(existingReservedList, updatedReservedList, VKey.create(ReservedList.class, "key", Key.create(existingReservedList)));
     reservedList = updatedReservedList;
   }
 }

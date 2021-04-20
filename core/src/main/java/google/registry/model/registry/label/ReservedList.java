@@ -323,9 +323,4 @@ public final class ReservedList
       return setReservedListMap(getInstance().parse(lines));
     }
   }
-
-  /** Creates a {@link VKey} instance from a {@link Key} instance. */
-  public VKey<ReservedList> createVKey() {
-    return VKey.create(ReservedList.class, this.revisionId, Key.create(this));
-  }
 }
