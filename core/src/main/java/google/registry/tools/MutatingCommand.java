@@ -45,9 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/**
- * A {@link ConfirmingCommand} that changes objects in Datastore.
- */
+/** A {@link ConfirmingCommand} that changes objects in Datastore. */
 public abstract class MutatingCommand extends ConfirmingCommand implements CommandWithRemoteApi {
 
   /**
@@ -57,15 +55,13 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
    */
   private static class EntityChange {
 
-    /**
-     * The possible types of mutation that can be performed on an entity.
-     */
+    /** The possible types of mutation that can be performed on an entity. */
     public enum ChangeType {
-      CREATE, DELETE, UPDATE;
+      CREATE,
+      DELETE,
+      UPDATE;
 
-      /**
-       * Return the ChangeType corresponding to the given combination of version existences.
-       */
+      /** Return the ChangeType corresponding to the given combination of version existences. */
       public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
         checkArgument(
             hasOldVersion || hasNewVersion,
@@ -74,24 +70,16 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       }
     }
 
-    /**
-     * The type of mutation being performed on the entity.
-     */
+    /** The type of mutation being performed on the entity. */
     final ChangeType type;
 
-    /**
-     * The old version of the entity, or null if this is a create.
-     */
+    /** The old version of the entity, or null if this is a create. */
     final ImmutableObject oldEntity;
 
-    /**
-     * The new version of the entity, or null if this is a delete.
-     */
+    /** The new version of the entity, or null if this is a delete. */
     final ImmutableObject newEntity;
 
-    /**
-     * The key that points to the entity being changed.
-     */
+    /** The key that points to the entity being changed. */
     VKey<?> key;
 
     public EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
@@ -120,9 +108,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       }
     }
 
-    /**
-     * Returns a human-readable ID string for the entity being changed.
-     */
+    /** Returns a human-readable ID string for the entity being changed. */
     public String getEntityId() {
       return String.format(
           "%s@%s",
@@ -131,15 +117,14 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
           getNameOrId(key.getOfyKey().getRaw()));
     }
 
-    /**
-     * Returns a string representation of this entity change.
-     */
+    /** Returns a string representation of this entity change. */
     @Override
     public String toString() {
       String changeText;
       if (type == ChangeType.UPDATE) {
-        String diffText = prettyPrintEntityDeepDiff(
-            oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
+        String diffText =
+            prettyPrintEntityDeepDiff(
+                oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
         changeText = Optional.ofNullable(emptyToNull(diffText)).orElse("[no changes]\n");
       } else {
         changeText = MoreObjects.firstNonNull(oldEntity, newEntity) + "\n";
@@ -150,18 +135,13 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     }
   }
 
-  /**
-   * Map from entity keys to EntityChange objects representing changes to those entities.
-   */
+  /** Map from entity keys to EntityChange objects representing changes to those entities. */
   private final LinkedHashMap<VKey<?>, EntityChange> changedEntitiesMap = new LinkedHashMap<>();
 
-  /**
-   * A set of resource keys for which new transactions should be created after.
-   */
+  /** A set of resource keys for which new transactions should be created after. */
   private final Set<VKey<?>> transactionBoundaries = new HashSet<>();
 
-  @Nullable
-  private VKey<?> lastAddedKey;
+  @Nullable private VKey<?> lastAddedKey;
 
   /**
    * Initializes the command.
@@ -188,11 +168,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     return String.format("Updated %d entities.\n", changedEntitiesMap.size());
   }
 
-  /**
-   * Performs any execution step after each batch.
-   */
-  protected void postBatchExecute() {
-  }
+  /** Performs any execution step after each batch. */
+  protected void postBatchExecute() {}
 
   private void executeChange(EntityChange change) {
     // Load the key of the entity to mutate and double-check that it hasn't been
@@ -242,8 +219,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
   /**
    * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-   * Note that both objects passed must correspond to versions of the same entity with the same
-   * key.
+   * Note that both objects passed must correspond to versions of the same entity with the same key.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
@@ -267,9 +243,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     transactionBoundaries.add(checkNotNull(lastAddedKey));
   }
 
-  /**
-   * Returns the changes that have been staged thus far.
-   */
+  /** Returns the changes that have been staged thus far. */
   @Override
   protected String prompt() {
     return changedEntitiesMap.isEmpty()
@@ -277,9 +251,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
         : changedEntitiesMap.values().stream().map(Object::toString).collect(joining("\n"));
   }
 
-  /**
-   * Returns the collection of the new entity in the {@link EntityChange}.
-   */
+  /** Returns the collection of the new entity in the {@link EntityChange}. */
   protected ImmutableList<ImmutableObject> getChangedEntities() {
     return changedEntitiesMap.values().stream()
         .map(entityChange -> entityChange.newEntity)

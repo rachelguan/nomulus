@@ -95,9 +95,7 @@ public final class ReservedList
     @Column(nullable = false)
     ReservationType reservationType;
 
-    /**
-     * Mapper for use with @Mapify
-     */
+    /** Mapper for use with @Mapify */
     static class LabelMapper implements Mapper<String, ReservedListEntry> {
 
       @Override
@@ -106,9 +104,7 @@ public final class ReservedList
       }
     }
 
-    /**
-     * Creates a {@link ReservedListEntry} from a label, reservation type, and optional comment.
-     */
+    /** Creates a {@link ReservedListEntry} from a label, reservation type, and optional comment. */
     public static ReservedListEntry create(
         String label, ReservationType reservationType, @Nullable String comment) {
       return new ReservedListEntry.Builder()
@@ -134,14 +130,11 @@ public final class ReservedList
           "%s,%s%s", label, reservationType, isNullOrEmpty(comment) ? "" : " # " + comment);
     }
 
-    /**
-     * A builder for constructing {@link ReservedListEntry} objects, since they are immutable.
-     */
+    /** A builder for constructing {@link ReservedListEntry} objects, since they are immutable. */
     private static class Builder
         extends DomainLabelEntry.Builder<ReservedListEntry, ReservedListEntry.Builder> {
 
-      public Builder() {
-      }
+      public Builder() {}
 
       private Builder(ReservedListEntry instance) {
         super(instance);
@@ -159,9 +152,7 @@ public final class ReservedList
     return registry.getReservedLists().contains(key);
   }
 
-  /**
-   * Determines whether the ReservedList is in use on any Registry
-   */
+  /** Determines whether the ReservedList is in use on any Registry */
   public boolean isInUse() {
     return !getReferencingTlds().isEmpty();
   }
@@ -174,9 +165,7 @@ public final class ReservedList
     return shouldPublish;
   }
 
-  /**
-   * Returns a {@link Map} of domain labels to {@link ReservedListEntry}.
-   */
+  /** Returns a {@link Map} of domain labels to {@link ReservedListEntry}. */
   public ImmutableMap<String, ReservedListEntry> getReservedListEntries() {
     return ImmutableMap.copyOf(nullToEmpty(reservedListMap));
   }
@@ -185,17 +174,15 @@ public final class ReservedList
    * Gets a ReservedList by name using the caching layer.
    *
    * @return An Optional&lt;ReservedList&gt; that has a value if a reserved list exists by the given
-   * name, or absent if not.
+   *     name, or absent if not.
    * @throws UncheckedExecutionException if some other error occurs while trying to load the
-   * ReservedList from the cache or Datastore.
+   *     ReservedList from the cache or Datastore.
    */
   public static Optional<ReservedList> get(String listName) {
     return getFromCache(listName, cache);
   }
 
-  /**
-   * Loads a ReservedList from its Objectify key.
-   */
+  /** Loads a ReservedList from its Objectify key. */
   public static Optional<ReservedList> load(Key<ReservedList> key) {
     return get(key.getName());
   }
@@ -211,8 +198,7 @@ public final class ReservedList
     if (label.length() == 0) {
       return ImmutableSet.of(FULLY_BLOCKED);
     }
-    return getReservedListEntries(label, tld)
-        .stream()
+    return getReservedListEntries(label, tld).stream()
         .map(ReservedListEntry::getValue)
         .collect(toImmutableSet());
   }
@@ -245,8 +231,7 @@ public final class ReservedList
 
   private static ImmutableSet<ReservedList> loadReservedLists(
       ImmutableSet<Key<ReservedList>> reservedListKeys) {
-    return reservedListKeys
-        .stream()
+    return reservedListKeys.stream()
         .map(
             (listKey) -> {
               try {
@@ -277,9 +262,9 @@ public final class ReservedList
    * Gets the {@link ReservationType} of a label in a single ReservedList, or returns an absent
    * Optional if none exists in the list.
    *
-   * <p>Note that this logic is significantly less complicated than the {@link
-   * #getReservationTypes} methods, which are applicable to an entire Registry, and need to check
-   * across multiple reserved lists.
+   * <p>Note that this logic is significantly less complicated than the {@link #getReservationTypes}
+   * methods, which are applicable to an entire Registry, and need to check across multiple reserved
+   * lists.
    */
   public Optional<ReservationType> getReservationInList(String label) {
     ReservedListEntry entry = getReservedListEntries().get(label);
@@ -296,8 +281,10 @@ public final class ReservedList
     String line = lineAndComment.get(0);
     String comment = lineAndComment.get(1);
     List<String> parts = Splitter.on(',').trimResults().splitToList(line);
-    checkArgument(parts.size() == 2 || parts.size() == 3,
-        "Could not parse line in reserved list: %s", originalLine);
+    checkArgument(
+        parts.size() == 2 || parts.size() == 3,
+        "Could not parse line in reserved list: %s",
+        originalLine);
     String label = parts.get(0);
     ReservationType reservationType = ReservationType.valueOf(parts.get(1));
     return ReservedListEntry.create(label, reservationType, comment);
@@ -308,14 +295,10 @@ public final class ReservedList
     return new Builder(clone(this));
   }
 
-
-  /**
-   * A builder for constructing {@link ReservedList} objects, since they are immutable.
-   */
+  /** A builder for constructing {@link ReservedList} objects, since they are immutable. */
   public static class Builder extends BaseDomainLabelList.Builder<ReservedList, Builder> {
 
-    public Builder() {
-    }
+    public Builder() {}
 
     private Builder(ReservedList instance) {
       super(instance);
@@ -341,14 +324,8 @@ public final class ReservedList
     }
   }
 
-  /**
-   * Creates a {@link VKey} instance from a {@link Key} instance.
-   */
+  /** Creates a {@link VKey} instance from a {@link Key} instance. */
   public VKey<ReservedList> createVKey() {
-    return VKey.create(
-        ReservedList.class,
-        this.revisionId,
-        Key.create(this));
+    return VKey.create(ReservedList.class, this.revisionId, Key.create(this));
   }
-
 }
