@@ -34,6 +34,8 @@ import com.googlecode.objectify.Key;
 import google.registry.model.ImmutableObject;
 import google.registry.persistence.VKey;
 import google.registry.schema.replay.SqlEntity;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -76,7 +78,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     final ImmutableObject newEntity;
 
     /** The key that points to the entity being changed. */
-    final VKey<?> key;
+    VKey<?> key;
 
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -90,10 +92,18 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
       // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
       // SQL key.
-      key =
-          entity instanceof SqlEntity
-              ? VKey.from(Key.create(entity))
-              : VKey.createOfy(entity.getClass(), Key.create(entity));
+
+      try {
+        Method createVKeyMethod = entity.getClass().getDeclaredMethod("createVKey");
+        key = (VKey<?>) createVKeyMethod.invoke(entity);
+      } catch (NoSuchMethodException e) {
+        key =
+            entity instanceof SqlEntity
+                ? VKey.from(Key.create(entity))
+                : VKey.createOfy(entity.getClass(), Key.create(entity));
+      } catch (IllegalAccessException | InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     /**

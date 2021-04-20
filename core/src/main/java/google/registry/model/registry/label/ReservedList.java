@@ -331,7 +331,7 @@ public final class ReservedList
     }
   }
   /** Creates a {@link VKey} instance from a {@link Key} instance. */
-  public VKey<ReservedList> createVKey(Key<ReservedList> ofyKey) {
+  public VKey<ReservedList> createVKey() {
     return VKey.create(
         ReservedList.class,
         this.revisionId,
