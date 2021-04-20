@@ -78,7 +78,11 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     final ImmutableObject newEntity;
 
     /** The key that points to the entity being changed. */
+<<<<<<< HEAD
     final VKey<?> key;
+=======
+    VKey<?> key;
+>>>>>>> b0691147d (reformat)
 
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -90,7 +94,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
 
       // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
-      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
+      // createOfy()).  We can use this code on DatastoreOnlygEntity's where we can't construct an
       // SQL key.
       key =
           entity instanceof SqlEntity
@@ -98,6 +102,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
               : VKey.createOfy(entity.getClass(), Key.create(entity));
     }
 
+<<<<<<< HEAD
     /**
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
@@ -126,6 +131,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       key = vkey;
     }
 
+=======
+>>>>>>> b0691147d (reformat)
     /** Returns a human-readable ID string for the entity being changed. */
     public String getEntityId() {
       return String.format(
@@ -236,8 +243,13 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
+<<<<<<< HEAD
    * Stages an entity change that will be applied by execute(). Both ImmutableObject instances must
    * be some version of the same entity with the same key.
+=======
+   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
+   * Note that both objects passed must correspond to versions of the same entity with the same key.
+>>>>>>> b0691147d (reformat)
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
