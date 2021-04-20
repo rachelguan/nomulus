@@ -78,11 +78,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     final ImmutableObject newEntity;
 
     /** The key that points to the entity being changed. */
-<<<<<<< HEAD
     final VKey<?> key;
-=======
-    VKey<?> key;
->>>>>>> b0691147d (reformat)
 
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -94,7 +90,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
 
       // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
-      // createOfy()).  We can use this code on DatastoreOnlygEntity's where we can't construct an
+      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
       // SQL key.
       key =
           entity instanceof SqlEntity
@@ -102,8 +98,6 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
               : VKey.createOfy(entity.getClass(), Key.create(entity));
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     /**
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
@@ -129,32 +123,9 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       }
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;
-=======
-      key =
-          entity instanceof SqlEntity
-              ? VKey.from(Key.create(entity))
-              : VKey.createOfy(entity.getClass(), Key.create(entity));
-    }
-
-
-    public EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
-      type = ChangeType.get(oldEntity != null, newEntity != null);
-      checkArgument(
-          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
-          "Both entity versions in an update must have the same Key.");
-      this.oldEntity = oldEntity;
-      this.newEntity = newEntity;
-      ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
-
-      // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
-      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
-      // SQL key.
->>>>>>> fc8fbdf70 (fix broken test cases by adding a new EntityChange constructor)
       key = vkey;
     }
 
-=======
->>>>>>> b0691147d (reformat)
     /** Returns a human-readable ID string for the entity being changed. */
     public String getEntityId() {
       return String.format(
@@ -265,13 +236,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
-<<<<<<< HEAD
    * Stages an entity change that will be applied by execute(). Both ImmutableObject instances must
    * be some version of the same entity with the same key.
-=======
-   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-   * Note that both objects passed must correspond to versions of the same entity with the same key.
->>>>>>> b0691147d (reformat)
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
@@ -279,17 +245,6 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   protected void stageEntityChange(
       @Nullable ImmutableObject oldEntity, @Nullable ImmutableObject newEntity) {
     EntityChange change = new EntityChange(oldEntity, newEntity);
-    checkArgument(
-        !changedEntitiesMap.containsKey(change.key),
-        "Cannot apply multiple changes for the same entity: %s",
-        change.getEntityId());
-    changedEntitiesMap.put(change.key, change);
-    lastAddedKey = change.key;
-  }
-
-  protected void stageEntityChange(
-      @Nullable ImmutableObject oldEntity, @Nullable ImmutableObject newEntity, VKey vkey) {
-    EntityChange change = new EntityChange(oldEntity, newEntity, vkey);
     checkArgument(
         !changedEntitiesMap.containsKey(change.key),
         "Cannot apply multiple changes for the same entity: %s",
