@@ -55,7 +55,7 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
     stageEntityChange(
         existingReservedList,
         updatedReservedList,
-        VKey.create(ReservedList.class, "key", Key.create(existingReservedList)));
+        VKey.createOfy(ReservedList.class, Key.create(existingReservedList)));
     reservedList = updatedReservedList;
   }
 }
