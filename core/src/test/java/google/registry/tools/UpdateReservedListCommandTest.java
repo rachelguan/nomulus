@@ -144,7 +144,6 @@ class UpdateReservedListCommandTest
   @Test
   void testSuccess_noChanges() throws Exception {
     File reservedTermsFile = tmpDir.resolve("xn--q9jyb4c_common-reserved.txt").toFile();
-<<<<<<< HEAD
     // after running runCommandForced, the file now contains "helicopter,FULLY_BLOCKED" which is
     // populated in the @BeforeEach method of this class and the rest of terms from
     // example_reserved_terms.csv, which are populated in the @BeforeEach of
@@ -162,29 +161,11 @@ class UpdateReservedListCommandTest
     // run again with terms from example_reserved_terms.csv
     command.init();
 
-=======
-    //after running runCommandForced, the file contains
-    //"helicopter,FULLY_BLOCKED" @BeforeEach of this file
-    //and terms from example_reserved_terms.csv
-    //Check @BeforeEach of CreateOrUpdateReservedListCommandTestCases for more info
-
-    runCommandForced("--name=xn--q9jyb4c_common-reserved", "--input=" + reservedTermsPath);
-
-    // run again with terms from example_reserved_terms.csv
-    String reservedTermsCsv = loadFile(CreateOrUpdateReservedListCommandTestCase.class, "example_reserved_terms.csv");
-    Files.asCharSink(reservedTermsFile, UTF_8).write(reservedTermsCsv);
-
-    reservedTermsPath = reservedTermsFile.getPath();
-    UpdateReservedListCommand command = new UpdateReservedListCommand();
-    command.input = Paths.get(reservedTermsPath);
-    command.init();
->>>>>>> 6daaed39f (add additional check for stageEntityChange and add test cases)
     assertThat(command.prompt()).isEqualTo("No entity changes to apply.");
   }
 
   @Test
   void testSuccess_withChanges() throws Exception {
-<<<<<<< HEAD
     // changes come from example_reserved_terms.csv, which are populated in @BeforeEach of
     // CreateOrUpdateReservedListCommandTestCases.java
     UpdateReservedListCommand command = new UpdateReservedListCommand();
@@ -194,15 +175,3 @@ class UpdateReservedListCommandTest
     assertThat(command.prompt()).contains("Update ReservedList@xn--q9jyb4c_common-reserved");
   }
 }
-=======
-    //changes come from example_reserved_terms.csv
-    //@BeforeEach of CreateOrUpdateReservedListCommandTestCases
-
-    UpdateReservedListCommand command = new UpdateReservedListCommand();
-    command.input = Paths.get(reservedTermsPath);
-    command.init();
-    System.out.println(command.prompt());
-    assertThat(command.prompt()).contains("Update ReservedList@xn--q9jyb4c_common-reserved");
-  }
-}
->>>>>>> 6daaed39f (add additional check for stageEntityChange and add test cases)
