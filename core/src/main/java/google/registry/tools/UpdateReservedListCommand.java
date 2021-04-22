@@ -51,16 +51,18 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
             .setReservedListMapFromLines(allLines)
             .setLastUpdateTime(now)
             .setShouldPublish(shouldPublish);
-    ReservedList updatedReservedList = updated.build();
+    reservedList = updated.build();
     // only call stageEntityChange if there are changes in entries
     if (!existingReservedList
         .getReservedListEntries()
-        .equals(updatedReservedList.getReservedListEntries())) {
+        .equals(reservedList.getReservedListEntries())) {
+      // cannot create vkey on the new ReservedList because its sql primary key field
+      //(revisionId) is only set when it's being persisted;
       stageEntityChange(
           existingReservedList,
-          updatedReservedList,
+          reservedList,
           VKey.createOfy(ReservedList.class, Key.create(existingReservedList)));
     }
-    reservedList = updatedReservedList;
+
   }
 }

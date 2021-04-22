@@ -55,9 +55,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
     /** The possible types of mutation that can be performed on an entity. */
     public enum ChangeType {
-      CREATE,
-      DELETE,
-      UPDATE;
+      CREATE, DELETE, UPDATE;
 
       /** Return the ChangeType corresponding to the given combination of version existences. */
       public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
@@ -80,7 +78,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     /** The key that points to the entity being changed. */
     final VKey<?> key;
 
-    public EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
+    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
       checkArgument(
           type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
@@ -92,15 +90,19 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
       // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
       // SQL key.
-
       key =
           entity instanceof SqlEntity
               ? VKey.from(Key.create(entity))
               : VKey.createOfy(entity.getClass(), Key.create(entity));
     }
 
-
-    public EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
+    /**
+     * Constructor that allows VKey override.
+     * This is a workaround to handle cases when a SqlEntity instance does not have primary key
+     * before being persisted.
+     *
+     */
+    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
       checkArgument(
           type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
@@ -237,6 +239,13 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     lastAddedKey = change.key;
   }
 
+  /**
+   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
+   *
+   * @param oldEntity the existing version of the entity, or null to create a new entity
+   * @param newEntity the new version of the entity to save, or null to delete the entity
+   * @param vkey the vkey being used to construct the EntityChange instance.
+   */
   protected void stageEntityChange(
       @Nullable ImmutableObject oldEntity, @Nullable ImmutableObject newEntity, VKey vkey) {
     EntityChange change = new EntityChange(oldEntity, newEntity, vkey);
