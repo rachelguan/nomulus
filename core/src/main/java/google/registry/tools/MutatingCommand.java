@@ -126,9 +126,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     public String toString() {
       String changeText;
       if (type == ChangeType.UPDATE) {
-        String diffText =
-            prettyPrintEntityDeepDiff(
-                oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
+        String diffText = prettyPrintEntityDeepDiff(
+          oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
         changeText = Optional.ofNullable(emptyToNull(diffText)).orElse("[no changes]\n");
       } else {
         changeText = MoreObjects.firstNonNull(oldEntity, newEntity) + "\n";
