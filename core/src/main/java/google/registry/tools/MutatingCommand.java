@@ -55,9 +55,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
     /** The possible types of mutation that can be performed on an entity. */
     public enum ChangeType {
-      CREATE,
-      DELETE,
-      UPDATE;
+      CREATE, DELETE, UPDATE;
 
       /** Return the ChangeType corresponding to the given combination of version existences. */
       public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
@@ -99,9 +97,16 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     }
 
     /**
+<<<<<<< HEAD
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
      * persisted.
+=======
+     * Constructor that allows VKey override.
+     * This is a workaround to handle cases when a SqlEntity instance does not have primary key
+     * before being persisted.
+     *
+>>>>>>> bee55163e (add javadoc and remove unnecessary formatting for existing code)
      */
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
@@ -254,12 +259,20 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
+<<<<<<< HEAD
    * Stages an entity change which will be applied by execute(), with the support of Vkey override.
    * It supports cases of SqlEntity instances that do not have primary keys before being persisted.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
    * @param vkey the key of the entity
+=======
+   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
+   *
+   * @param oldEntity the existing version of the entity, or null to create a new entity
+   * @param newEntity the new version of the entity to save, or null to delete the entity
+   * @param vkey the vkey being used to construct the EntityChange instance.
+>>>>>>> bee55163e (add javadoc and remove unnecessary formatting for existing code)
    */
   protected void stageEntityChange(
       @Nullable ImmutableObject oldEntity, @Nullable ImmutableObject newEntity, VKey vkey) {
