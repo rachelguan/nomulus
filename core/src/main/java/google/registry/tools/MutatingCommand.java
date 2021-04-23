@@ -133,7 +133,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
      */
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
-      // adding another check to ensure key of old/new entity is same as OfyKey of the vkey
+      // there needs to be a check to ensure key of old/new entity is same as OfyKey of the vkey
       checkArgument(
           type != ChangeType.UPDATE
               || Key.create(oldEntity).equals(Key.create(newEntity))
