@@ -151,16 +151,17 @@ class UpdateReservedListCommandTest
     // which are populated in the @BeforeEach of CreateOrUpdateReservedListCommandTestCases.java
     runCommandForced("--name=xn--q9jyb4c_common-reserved", "--input=" + reservedTermsPath);
 
-    // set up to write content already in 
+    // set up to write content already in file
     String reservedTermsCsv =
         loadFile(CreateOrUpdateReservedListCommandTestCase.class, "example_reserved_terms.csv");
     Files.asCharSink(reservedTermsFile, UTF_8).write(reservedTermsCsv);
-
     reservedTermsPath = reservedTermsFile.getPath();
+    // create a command instance and assign its input
     UpdateReservedListCommand command = new UpdateReservedListCommand();
     command.input = Paths.get(reservedTermsPath);
     // run again with terms from example_reserved_terms.csv
     command.init();
+    
     assertThat(command.prompt()).isEqualTo("No entity changes to apply.");
   }
 
@@ -171,6 +172,7 @@ class UpdateReservedListCommandTest
     UpdateReservedListCommand command = new UpdateReservedListCommand();
     command.input = Paths.get(reservedTermsPath);
     command.init();
+
     assertThat(command.prompt()).contains("Update ReservedList@xn--q9jyb4c_common-reserved");
   }
 }
