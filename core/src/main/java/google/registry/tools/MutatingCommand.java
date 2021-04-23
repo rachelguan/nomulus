@@ -96,7 +96,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
               : VKey.createOfy(entity.getClass(), Key.create(entity));
     }
 
-    / /**
+    /**
      * EntityChange constructor that supports Vkey override.
      * This is a workaround to handle cases when a SqlEntity instance does not have 
      * a primary key before being persisted.
@@ -105,7 +105,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
       checkArgument(
-          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
+          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity))
+              || Key.create(oldEntity).equals(vkey.getOfyKey()),
           "Both entity versions in an update must have the same Key.");
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;

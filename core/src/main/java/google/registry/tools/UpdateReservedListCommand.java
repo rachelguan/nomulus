@@ -14,7 +14,6 @@
 
 package google.registry.tools;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static google.registry.util.ListNamingUtils.convertFilePathToName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -26,27 +25,26 @@ import google.registry.persistence.VKey;
 import google.registry.util.SystemClock;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Optional;
 import org.joda.time.DateTime;
 
-/** Command to safely update {@link ReservedList} on Datastore. */
+/**
+ * Command to safely update {@link ReservedList} on Datastore.
+ */
 @Parameters(separators = " =", commandDescription = "Update a ReservedList in Datastore.")
 final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand {
 
   @Override
   protected void init() throws Exception {
     name = Strings.isNullOrEmpty(name) ? convertFilePathToName(input) : name;
-    Optional<ReservedList> existing = ReservedList.get(name);
-    checkArgument(
-        existing.isPresent(), "Could not update reserved list %s because it doesn't exist.", name);
+    ReservedList existingReservedList = ReservedList.get(name).orElseThrow(
+        () -> new IllegalArgumentException(
+            String.format("Could not update reserved list %s because it doesn't exist.", name)));
     boolean shouldPublish =
-        this.shouldPublish == null ? existing.get().getShouldPublish() : this.shouldPublish;
+        this.shouldPublish == null ? existingReservedList.getShouldPublish() : this.shouldPublish;
     List<String> allLines = Files.readAllLines(input, UTF_8);
     DateTime now = new SystemClock().nowUtc();
-    ReservedList existingReservedList = existing.get();
     ReservedList.Builder updated =
-        existing
-            .get()
+        existingReservedList
             .asBuilder()
             .setReservedListMapFromLines(allLines)
             .setLastUpdateTime(now)
@@ -56,9 +54,9 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
     if (!existingReservedList
         .getReservedListEntries()
         .equals(reservedList.getReservedListEntries())) {
-      // instead of calling the existing stageEntityChange method that only takes both new and old entity, 
-      // a vkey has to be created here explicitly and passed in to stageEntityChange method
-      // because ReservedList is a sqlEntity, it triggers the static method Vkey.create(Key<?> ofyCall), 
+      // calling stageEntityChange that takes both old and new entity, along with vkey;
+      // a vkey has to be created here explicitly and passed in to stageEntityChange method because
+      // ReservedList is a sqlEntity, it triggers the static method Vkey.create(Key<?> ofyCall),
       // which invokes a static ReservedList.createVkey(Key ofyKey) method, that doesn’t exist.
       // this sql primary key field (revisionId) is only set when it's being persisted;
       stageEntityChange(
