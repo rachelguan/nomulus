@@ -46,113 +46,10 @@ import javax.annotation.Nullable;
 /** A {@link ConfirmingCommand} that changes objects in Datastore. */
 public abstract class MutatingCommand extends ConfirmingCommand implements CommandWithRemoteApi {
 
-  /**
-   * A mutation of a specific entity, represented by an old and a new version of the entity. Storing
-   * the old version is necessary to enable checking that the existing entity has not been modified
-   * when applying a mutation that was created outside the same transaction.
-   */
-  private static class EntityChange {
-
-    /** The possible types of mutation that can be performed on an entity. */
-    public enum ChangeType {
-      CREATE, DELETE, UPDATE;
-
-      /** Return the ChangeType corresponding to the given combination of version existences. */
-      public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
-        checkArgument(
-            hasOldVersion || hasNewVersion,
-            "An entity change must have an old version or a new version (or both)");
-        return !hasOldVersion ? CREATE : (!hasNewVersion ? DELETE : UPDATE);
-      }
-    }
-
-    /** The type of mutation being performed on the entity. */
-    final ChangeType type;
-
-    /** The old version of the entity, or null if this is a create. */
-    final ImmutableObject oldEntity;
-
-    /** The new version of the entity, or null if this is a delete. */
-    final ImmutableObject newEntity;
-
-    /** The key that points to the entity being changed. */
-    final VKey<?> key;
-
-    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
-      type = ChangeType.get(oldEntity != null, newEntity != null);
-      checkArgument(
-          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
-          "Both entity versions in an update must have the same Key.");
-      this.oldEntity = oldEntity;
-      this.newEntity = newEntity;
-      ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
-
-      // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
-      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
-      // SQL key.
-      key =
-          entity instanceof SqlEntity
-              ? VKey.from(Key.create(entity))
-              : VKey.createOfy(entity.getClass(), Key.create(entity));
-    }
-
-    /**
-     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity.
-     * This is a workaround to handle cases when a SqlEntity instance does not have 
-     * a primary key before being persisted.
-     */
-    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
-      type = ChangeType.get(oldEntity != null, newEntity != null);
-      Key<?> oldKey = Key.create(oldEntity), newKey = Key.create(newEntity);
-      if (type == ChangeType.UPDATE) {
-        checkArgument(oldKey.equals(newKey),
-            "Both entity versions in an update must have the same Key.");
-        checkArgument(oldKey.equals(vkey.getOfyKey()),
-            "The Key of the entity must be the same as the OfyKey of the vkey");
-      } else if (type == ChangeType.CREATE) {
-        checkArgument(newKey.equals(vkey.getOfyKey()),
-            "Both entity versions in an update must have the same Key.");
-      } else if (type == ChangeType.DELETE) {
-        checkArgument(oldKey.equals(vkey.getOfyKey()),
-            "The Key of the entity must be the same as the OfyKey of the vkey");
-      }
-      this.oldEntity = oldEntity;
-      this.newEntity = newEntity;
-      key = vkey;
-    }
-
-    /** Returns a human-readable ID string for the entity being changed. */
-    public String getEntityId() {
-      return String.format(
-          "%s@%s",
-          key.getOfyKey().getKind(),
-          // NB: try name before id, since name defaults to null, whereas id defaults to 0.
-          getNameOrId(key.getOfyKey().getRaw()));
-    }
-
-    /** Returns a string representation of this entity change. */
-    @Override
-    public String toString() {
-      String changeText;
-      if (type == ChangeType.UPDATE) {
-        String diffText = prettyPrintEntityDeepDiff(
-            oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
-        changeText = Optional.ofNullable(emptyToNull(diffText)).orElse("[no changes]\n");
-      } else {
-        changeText = MoreObjects.firstNonNull(oldEntity, newEntity) + "\n";
-      }
-      return String.format(
-          "%s %s\n%s",
-          UPPER_UNDERSCORE.to(UPPER_CAMEL, type.toString()), getEntityId(), changeText);
-    }
-  }
-
   /** Map from entity keys to EntityChange objects representing changes to those entities. */
   private final LinkedHashMap<VKey<?>, EntityChange> changedEntitiesMap = new LinkedHashMap<>();
-
   /** A set of resource keys for which new transactions should be created after. */
   private final Set<VKey<?>> transactionBoundaries = new HashSet<>();
-
   @Nullable private VKey<?> lastAddedKey;
 
   /**
@@ -287,5 +184,109 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     return changedEntitiesMap.values().stream()
         .map(entityChange -> entityChange.newEntity)
         .collect(toImmutableList());
+  }
+
+  /**
+   * A mutation of a specific entity, represented by an old and a new version of the entity. Storing
+   * the old version is necessary to enable checking that the existing entity has not been modified
+   * when applying a mutation that was created outside the same transaction.
+   */
+  private static class EntityChange {
+
+    /** The type of mutation being performed on the entity. */
+    final ChangeType type;
+    /** The old version of the entity, or null if this is a create. */
+    final ImmutableObject oldEntity;
+    /** The new version of the entity, or null if this is a delete. */
+    final ImmutableObject newEntity;
+    /** The key that points to the entity being changed. */
+    final VKey<?> key;
+
+    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity) {
+      type = ChangeType.get(oldEntity != null, newEntity != null);
+      checkArgument(
+          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity)),
+          "Both entity versions in an update must have the same Key.");
+      this.oldEntity = oldEntity;
+      this.newEntity = newEntity;
+      ImmutableObject entity = MoreObjects.firstNonNull(oldEntity, newEntity);
+
+      // This is one of the few cases where it is acceptable to create an asymmetric VKey (using
+      // createOfy()).  We can use this code on DatastoreOnlyEntity's where we can't construct an
+      // SQL key.
+      key =
+          entity instanceof SqlEntity
+              ? VKey.from(Key.create(entity))
+              : VKey.createOfy(entity.getClass(), Key.create(entity));
+    }
+
+    /**
+     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
+     * workaround to handle cases when a SqlEntity instance does not have a primary key before being
+     * persisted.
+     */
+    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
+      type = ChangeType.get(oldEntity != null, newEntity != null);
+      Key<?> oldKey = Key.create(oldEntity), newKey = Key.create(newEntity);
+      if (type == ChangeType.UPDATE) {
+        checkArgument(
+            oldKey.equals(newKey), "Both entity versions in an update must have the same Key.");
+        checkArgument(
+            oldKey.equals(vkey.getOfyKey()),
+            "The Key of the entity must be the same as the OfyKey of the vkey");
+      } else if (type == ChangeType.CREATE) {
+        checkArgument(
+            newKey.equals(vkey.getOfyKey()),
+            "Both entity versions in an update must have the same Key.");
+      } else if (type == ChangeType.DELETE) {
+        checkArgument(
+            oldKey.equals(vkey.getOfyKey()),
+            "The Key of the entity must be the same as the OfyKey of the vkey");
+      }
+      this.oldEntity = oldEntity;
+      this.newEntity = newEntity;
+      key = vkey;
+    }
+
+    /** Returns a human-readable ID string for the entity being changed. */
+    public String getEntityId() {
+      return String.format(
+          "%s@%s",
+          key.getOfyKey().getKind(),
+          // NB: try name before id, since name defaults to null, whereas id defaults to 0.
+          getNameOrId(key.getOfyKey().getRaw()));
+    }
+
+    /** Returns a string representation of this entity change. */
+    @Override
+    public String toString() {
+      String changeText;
+      if (type == ChangeType.UPDATE) {
+        String diffText =
+            prettyPrintEntityDeepDiff(
+                oldEntity.toDiffableFieldMap(), newEntity.toDiffableFieldMap());
+        changeText = Optional.ofNullable(emptyToNull(diffText)).orElse("[no changes]\n");
+      } else {
+        changeText = MoreObjects.firstNonNull(oldEntity, newEntity) + "\n";
+      }
+      return String.format(
+          "%s %s\n%s",
+          UPPER_UNDERSCORE.to(UPPER_CAMEL, type.toString()), getEntityId(), changeText);
+    }
+
+    /** The possible types of mutation that can be performed on an entity. */
+    public enum ChangeType {
+      CREATE,
+      DELETE,
+      UPDATE;
+
+      /** Return the ChangeType corresponding to the given combination of version existences. */
+      public static ChangeType get(boolean hasOldVersion, boolean hasNewVersion) {
+        checkArgument(
+            hasOldVersion || hasNewVersion,
+            "An entity change must have an old version or a new version (or both)");
+        return !hasOldVersion ? CREATE : (!hasNewVersion ? DELETE : UPDATE);
+      }
+    }
   }
 }
