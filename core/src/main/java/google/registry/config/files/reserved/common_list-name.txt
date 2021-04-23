@@ -1,0 +1,2 @@
+reserveddomain,FULLY_BLOCKED
+availableinga,ALLOWED_IN_SUNRISE

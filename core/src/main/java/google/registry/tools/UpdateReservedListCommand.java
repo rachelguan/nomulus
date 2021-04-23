@@ -27,9 +27,7 @@ import java.nio.file.Files;
 import java.util.List;
 import org.joda.time.DateTime;
 
-/**
- * Command to safely update {@link ReservedList} on Datastore.
- */
+/** Command to safely update {@link ReservedList} on Datastore. */
 @Parameters(separators = " =", commandDescription = "Update a ReservedList in Datastore.")
 final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand {
 
