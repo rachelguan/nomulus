@@ -99,6 +99,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     }
 
     /**
+<<<<<<< HEAD
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
      * persisted.
@@ -121,6 +122,19 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
             oldKey.equals(vkey.getOfyKey()),
             "The Key of the entity must be the same as the OfyKey of the vkey");
       }
+=======
+     * EntityChange constructor that supports Vkey override.
+     * This is a workaround to handle cases when a SqlEntity instance does not have 
+     * a primary key before being persisted.
+     *
+     */
+    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
+      type = ChangeType.get(oldEntity != null, newEntity != null);
+      checkArgument(
+          type != ChangeType.UPDATE || Key.create(oldEntity).equals(Key.create(newEntity))
+              || Key.create(oldEntity).equals(vkey.getOfyKey()),
+          "Both entity versions in an update must have the same Key.");
+>>>>>>> b91b95c07 (revise comment and clean up code)
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;
       key = vkey;
