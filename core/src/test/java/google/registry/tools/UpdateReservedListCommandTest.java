@@ -144,18 +144,10 @@ class UpdateReservedListCommandTest
   @Test
   void testSuccess_noChanges() throws Exception {
     File reservedTermsFile = tmpDir.resolve("xn--q9jyb4c_common-reserved.txt").toFile();
-<<<<<<< HEAD
     // after running runCommandForced, the file now contains "helicopter,FULLY_BLOCKED" which is
     // populated in the @BeforeEach method of this class and the rest of terms from
     // example_reserved_terms.csv, which are populated in the @BeforeEach of
     // CreateOrUpdateReservedListCommandTestCases.java.
-=======
-    // after running runCommandForced, the file contains
-    // "helicopter,FULLY_BLOCKED" which is populated in the @BeforeEach method of this class
-    // and the rest of terms from example_reserved_terms.csv,
-    // which are populated in the @BeforeEach of CreateOrUpdateReservedListCommandTestCases.java
-
->>>>>>> b91b95c07 (revise comment and clean up code)
     runCommandForced("--name=xn--q9jyb4c_common-reserved", "--input=" + reservedTermsPath);
 
     // set up to write content already in file
@@ -174,21 +166,12 @@ class UpdateReservedListCommandTest
 
   @Test
   void testSuccess_withChanges() throws Exception {
-<<<<<<< HEAD
     // changes come from example_reserved_terms.csv, which are populated in @BeforeEach of
     // CreateOrUpdateReservedListCommandTestCases.java
     UpdateReservedListCommand command = new UpdateReservedListCommand();
     command.input = Paths.get(reservedTermsPath);
     command.init();
 
-=======
-    // changes come from example_reserved_terms.csv, which are populated
-    // in @BeforeEach of CreateOrUpdateReservedListCommandTestCases.java
-
-    UpdateReservedListCommand command = new UpdateReservedListCommand();
-    command.input = Paths.get(reservedTermsPath);
-    command.init();
->>>>>>> b91b95c07 (revise comment and clean up code)
     assertThat(command.prompt()).contains("Update ReservedList@xn--q9jyb4c_common-reserved");
   }
 }
