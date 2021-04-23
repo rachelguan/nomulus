@@ -279,11 +279,15 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 =======
    * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
 <<<<<<< HEAD
+<<<<<<< HEAD
    * This constructor allows vkey override, which supports SqlEntity instances that
    * do not have primary keys before being persisted.
 >>>>>>> 07c15593e (format clean up)
 =======
    * This method allows Vkey override, which will changes to be stored when SqlEntity instances
+=======
+   * This method allows Vkey override, which adds support to cases of SqlEntity instances
+>>>>>>> ed205333d (revise comment)
    * that do not have primary keys before being persisted.
 >>>>>>> b88feb3e2 (revising comments)
    *
