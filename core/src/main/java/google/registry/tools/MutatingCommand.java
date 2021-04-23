@@ -99,8 +99,6 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
     }
 
     /**
-<<<<<<< HEAD
-<<<<<<< HEAD
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
      * persisted.
@@ -123,39 +121,6 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
             oldKey.equals(vkey.getOfyKey()),
             "The Key of the entity must be the same as the OfyKey of the vkey");
       }
-=======
-     * EntityChange constructor that supports Vkey override.
-=======
-     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity.
->>>>>>> b88feb3e2 (revising comments)
-     * This is a workaround to handle cases when a SqlEntity instance does not have 
-     * a primary key before being persisted.
-     */
-    private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
-      type = ChangeType.get(oldEntity != null, newEntity != null);
-<<<<<<< HEAD
-      // there needs to be a check to ensure key of old/new entity is same as OfyKey of the vkey
-      checkArgument(
-          type != ChangeType.UPDATE
-              || Key.create(oldEntity).equals(Key.create(newEntity))
-              || Key.create(oldEntity).equals(vkey.getOfyKey()),
-          "Both entity versions in an update must have the same Key.");
->>>>>>> b91b95c07 (revise comment and clean up code)
-=======
-      Key<?> oldKey = Key.create(oldEntity), newKey = Key.create(newEntity);
-      if (type == ChangeType.UPDATE) {
-        checkArgument(oldKey.equals(newKey),
-            "Both entity versions in an update must have the same Key.");
-        checkArgument(oldKey.equals(vkey.getOfyKey()),
-            "The Key of the entity must be the same as the OfyKey of the vkey");
-      } else if (type == ChangeType.CREATE) {
-        checkArgument(newKey.equals(vkey.getOfyKey()),
-            "Both entity versions in an update must have the same Key.");
-      } else if (type == ChangeType.DELETE) {
-        checkArgument(oldKey.equals(vkey.getOfyKey()),
-            "The Key of the entity must be the same as the OfyKey of the vkey");
-      }
->>>>>>> 4ff13362e (add other type checks for EntityChange method)
       this.oldEntity = oldEntity;
       this.newEntity = newEntity;
       key = vkey;
@@ -271,11 +236,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
-<<<<<<< HEAD
    * Stages an entity change that will be applied by execute(). Both ImmutableObject instances must
-=======
-   * Stage an entity change that will be applied by execute(). Both ImmutableObject instances must
->>>>>>> 4ff13362e (add other type checks for EntityChange method)
    * be some version of the same entity with the same key.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
@@ -293,28 +254,8 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
   }
 
   /**
-<<<<<<< HEAD
-<<<<<<< HEAD
    * Stages an entity change which will be applied by execute(), with the support of Vkey override.
    * It supports cases of SqlEntity instances that do not have primary keys before being persisted.
-=======
-   * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-<<<<<<< HEAD
-<<<<<<< HEAD
-   * This constructor allows vkey override, which supports SqlEntity instances that
-   * do not have primary keys before being persisted.
->>>>>>> 07c15593e (format clean up)
-=======
-   * This method allows Vkey override, which will changes to be stored when SqlEntity instances
-=======
-   * This method allows Vkey override, which adds support to cases of SqlEntity instances
->>>>>>> ed205333d (revise comment)
-   * that do not have primary keys before being persisted.
->>>>>>> b88feb3e2 (revising comments)
-=======
-   * Stages an entity change which will be applied by execute(), with the support of Vkey override.
-   * It supports cases of SqlEntity instances that do not have primary keys before being persisted.
->>>>>>> 4ff13362e (add other type checks for EntityChange method)
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
