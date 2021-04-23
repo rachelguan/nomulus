@@ -52,11 +52,11 @@ final class UpdateReservedListCommand extends CreateOrUpdateReservedListCommand 
     if (!existingReservedList
         .getReservedListEntries()
         .equals(reservedList.getReservedListEntries())) {
-      // calling stageEntityChange that takes both old and new entity, along with vkey;
-      // a vkey has to be created here explicitly and passed in to stageEntityChange method because
-      // ReservedList is a sqlEntity, it triggers the static method Vkey.create(Key<?> ofyCall),
-      // which invokes a static ReservedList.createVkey(Key ofyKey) method, that doesn’t exist.
-      // this sql primary key field (revisionId) is only set when it's being persisted;
+      // calls method stageEntityChange that takes old entity, new entity and a new vkey;
+      // a vkey has to be created here explicitly for ReservedList instances.
+      // ReservedList is a sqlEntity; it triggers the static method Vkey.create(Key<?> ofyCall),
+      // which invokes a static ReservedList.createVkey(Key ofyKey) method that does not exist.
+      // the sql primary key field (revisionId) is only set when it's being persisted;
       stageEntityChange(
           existingReservedList,
           reservedList,

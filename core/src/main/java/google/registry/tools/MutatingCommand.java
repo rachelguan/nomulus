@@ -242,12 +242,12 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
   /**
    * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
-   * This method allows Vkey override, which will changes to be stored when SqlEntity instances
+   * This method allows Vkey override, which adds support to cases of SqlEntity instances
    * that do not have primary keys before being persisted.
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
-   * @param vkey the key of the entity.
+   * @param vkey the key of the entity
    */
   protected void stageEntityChange(
       @Nullable ImmutableObject oldEntity, @Nullable ImmutableObject newEntity, VKey vkey) {
