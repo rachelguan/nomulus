@@ -100,6 +100,7 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
 
     /**
 <<<<<<< HEAD
+<<<<<<< HEAD
      * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity. This is a
      * workaround to handle cases when a SqlEntity instance does not have a primary key before being
      * persisted.
@@ -124,11 +125,15 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
       }
 =======
      * EntityChange constructor that supports Vkey override.
+=======
+     * EntityChange constructor that supports Vkey override. A Vkey is a key of an entity.
+>>>>>>> b88feb3e2 (revising comments)
      * This is a workaround to handle cases when a SqlEntity instance does not have 
      * a primary key before being persisted.
      */
     private EntityChange(ImmutableObject oldEntity, ImmutableObject newEntity, VKey<?> vkey) {
       type = ChangeType.get(oldEntity != null, newEntity != null);
+      // adding another check to ensure key of old/new entity is same as OfyKey of the vkey
       checkArgument(
           type != ChangeType.UPDATE
               || Key.create(oldEntity).equals(Key.create(newEntity))
@@ -273,9 +278,14 @@ public abstract class MutatingCommand extends ConfirmingCommand implements Comma
    * It supports cases of SqlEntity instances that do not have primary keys before being persisted.
 =======
    * Subclasses can call this to stage a mutation to an entity that will be applied by execute().
+<<<<<<< HEAD
    * This constructor allows vkey override, which supports SqlEntity instances that
    * do not have primary keys before being persisted.
 >>>>>>> 07c15593e (format clean up)
+=======
+   * This method allows Vkey override, which will changes to be stored when SqlEntity instances
+   * that do not have primary keys before being persisted.
+>>>>>>> b88feb3e2 (revising comments)
    *
    * @param oldEntity the existing version of the entity, or null to create a new entity
    * @param newEntity the new version of the entity to save, or null to delete the entity
