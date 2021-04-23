@@ -144,7 +144,6 @@ class UpdateReservedListCommandTest
   @Test
   void testSuccess_noChanges() throws Exception {
     File reservedTermsFile = tmpDir.resolve("xn--q9jyb4c_common-reserved.txt").toFile();
-
     // after running runCommandForced, the file now contains "helicopter,FULLY_BLOCKED" which is
     // populated in the @BeforeEach method of this class and the rest of terms from
     // example_reserved_terms.csv, which are populated in the @BeforeEach of
