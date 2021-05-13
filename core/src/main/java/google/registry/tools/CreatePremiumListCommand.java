@@ -24,13 +24,13 @@ import com.beust.jcommander.Parameters;
 import com.google.common.base.Strings;
 import com.googlecode.objectify.Key;
 import google.registry.model.registry.label.PremiumList;
-import google.registry.model.registry.label.PremiumListDualDao;
 import google.registry.persistence.VKey;
+import google.registry.schema.tld.PremiumListSqlDao;
 import google.registry.schema.tld.PremiumListUtils;
 import java.nio.file.Files;
 
-/** Command to create a {@link PremiumList} on Datastore. */
-@Parameters(separators = " =", commandDescription = "Create a PremiumList in Datastore.")
+/** Command to create a {@link PremiumList} on Database. */
+@Parameters(separators = " =", commandDescription = "Create a PremiumList in Database.")
 public class CreatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
 
   @Parameter(
@@ -42,7 +42,9 @@ public class CreatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
   // Using CreatePremiumListAction.java as reference;
   protected void init() throws Exception {
     name = Strings.isNullOrEmpty(name) ? convertFilePathToName(inputFile) : name;
-    checkArgument(!PremiumListDualDao.exists(name), "A premium list already exists by this name");
+    checkArgument(
+        !PremiumListSqlDao.getLatestRevision(name).isPresent(),
+        "A premium list already exists by this name");
     if (!override) {
       // refer to CreatePremiumListAction.java
       assertTldExists(
@@ -50,10 +52,9 @@ public class CreatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
           "Premium names must match the name of the TLD they are intended to be used on"
               + " (unless --override is specified), yet TLD %s does not exist");
     }
-    allLines = Files.readAllLines(inputFile, UTF_8);
-    inputLineCount = allLines.size();
+    inputData = Files.readAllLines(inputFile, UTF_8);
     // create a premium list with only input data and store as the first version of the entity
-    PremiumList newPremiumList = PremiumListUtils.parseToPremiumList(name, allLines);
+    PremiumList newPremiumList = PremiumListUtils.parseToPremiumList(name, inputData);
     stageEntityChange(
         null, newPremiumList, VKey.createOfy(PremiumList.class, Key.create(newPremiumList)));
   }

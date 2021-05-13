@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.Optional;
 import org.joda.money.BigMoney;
 
-/** Command to safely update {@link PremiumList} in Datastore for a given TLD. */
-@Parameters(separators = " =", commandDescription = "Update a PremiumList in Datastore.")
+/** Command to safely update {@link PremiumList} in Database for a given TLD. */
+@Parameters(separators = " =", commandDescription = "Update a PremiumList in Database.")
 class UpdatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
 
   @Override
@@ -45,12 +45,11 @@ class UpdatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
   protected void init() throws Exception {
     name = Strings.isNullOrEmpty(name) ? convertFilePathToName(inputFile) : name;
     List<String> existingEntry = getExistingPremiumListEntry(name).asList();
-    allLines = Files.readAllLines(inputFile, UTF_8);
-    inputLineCount = allLines.size();
+    inputData = Files.readAllLines(inputFile, UTF_8);
 
     // reconstructing existing premium list to bypass Hibernate lazy initialization exception
     PremiumList existingPremiumList = PremiumListUtils.parseToPremiumList(name, existingEntry);
-    PremiumList updatedPremiumList = PremiumListUtils.parseToPremiumList(name, allLines);
+    PremiumList updatedPremiumList = PremiumListUtils.parseToPremiumList(name, inputData);
 
     // use LabelsToPrices() for comparison between old and new premium lists since they have
     // different creation date, updated date even if they have same content;
@@ -70,7 +69,7 @@ class UpdatePremiumListCommand extends CreateOrUpdatePremiumListCommand {
     Ideally, the following should be the way to verify info in latest revision of a premium list:
 
     PremiumList existingPremiumList =
-        PremiumListDualDao.getLatestRevision(name)
+        PremiumListSqlDao.getLatestRevision(name)
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
