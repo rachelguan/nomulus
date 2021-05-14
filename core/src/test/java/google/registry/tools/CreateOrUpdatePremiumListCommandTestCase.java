@@ -43,7 +43,7 @@ abstract class CreateOrUpdatePremiumListCommandTestCase<T extends CreateOrUpdate
   protected String initialPremiumListData;
 
   @BeforeEach
-  void beforeEachCreateOrUpdateReservedListCommandTestCase() throws IOException {
+  void beforeEachCreateOrUpdatePremiumListCommandTestCase() throws IOException {
     // initial set up for both CreatePremiumListCommand and UpdatePremiumListCommand test cases;
     initialPremiumListData = "doge,USD 9090";
     File premiumTermsFile = tmpDir.resolve(TLD_TEST + ".txt").toFile();
