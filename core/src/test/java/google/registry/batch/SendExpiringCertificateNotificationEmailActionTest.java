@@ -66,7 +66,7 @@ class SendExpiringCertificateNotificationEmailActionTest {
   private SendExpiringCertificateNotificationEmailAction action;
   private Registrar sampleRegistrar;
   private Response response;
-  private final String expirationWarningEmailBodyText =
+  private static final String expirationWarningEmailBodyText =
       " Dear %1$s,\n"
           + "\n"
           + "    We would like to inform you that your %2$s SSL certificate will expire at\n"
@@ -109,7 +109,7 @@ class SendExpiringCertificateNotificationEmailActionTest {
           + "\n"
           + "    Regards,\n"
           + "    Google Registry\n";
-  private final String expirationWarningEmailSubjectText =
+  private static final String expirationWarningEmailSubjectText =
       "[Important] Expiring SSL certificate for Google " + "Registry EPP connection";
 
   @BeforeEach
@@ -631,6 +631,9 @@ class SendExpiringCertificateNotificationEmailActionTest {
     assertThat(emailBody).contains(certificateType.getDisplayName());
     assertThat(emailBody).contains(certExpirationDateStr);
     assertThat(emailBody).contains(registrarId + "@registry.google");
+    assertThat(emailBody).doesNotContain("%1$s@registry.google");
+    assertThat(emailBody).doesNotContain("%2$s@registry.google");
+    assertThat(emailBody).doesNotContain("%3$s@registry.google");
     assertThat(emailBody).doesNotContain("%4$s@registry.google");
   }
 
