@@ -136,7 +136,7 @@ public class ContactHistoryTest extends EntityTestCase {
 
   @Test
   void testWipeOutPii_assertsAllPiiFieldsAreNull() {
-    ContactHistory contactHistory =
+    ContactHistory originalEntity =
         createContactHistory(
             new ContactResource.Builder()
                 .setRepoId("1-FOOBAR")
@@ -173,19 +173,19 @@ public class ContactHistoryTest extends EntityTestCase {
                 .setEmailAddress("test@example.com")
                 .build());
 
-    assertThat(contactHistory.getContactBase().get().getEmailAddress()).isNotNull();
-    assertThat(contactHistory.getContactBase().get().getLocalizedPostalInfo()).isNotNull();
-    assertThat(contactHistory.getContactBase().get().getInternationalizedPostalInfo()).isNotNull();
-    assertThat(contactHistory.getContactBase().get().getVoiceNumber()).isNotNull();
-    assertThat(contactHistory.getContactBase().get().getFaxNumber()).isNotNull();
+    assertThat(originalEntity.getContactBase().get().getEmailAddress()).isNotNull();
+    assertThat(originalEntity.getContactBase().get().getLocalizedPostalInfo()).isNotNull();
+    assertThat(originalEntity.getContactBase().get().getInternationalizedPostalInfo()).isNotNull();
+    assertThat(originalEntity.getContactBase().get().getVoiceNumber()).isNotNull();
+    assertThat(originalEntity.getContactBase().get().getFaxNumber()).isNotNull();
 
-    contactHistory = contactHistory.asBuilder().wipeOutPii().build();
+    ContactHistory wipedEntity = originalEntity.asBuilder().wipeOutPii().build();
 
-    assertThat(contactHistory.getContactBase().get().getEmailAddress()).isNull();
-    assertThat(contactHistory.getContactBase().get().getLocalizedPostalInfo()).isNull();
-    assertThat(contactHistory.getContactBase().get().getInternationalizedPostalInfo()).isNull();
-    assertThat(contactHistory.getContactBase().get().getVoiceNumber()).isNull();
-    assertThat(contactHistory.getContactBase().get().getFaxNumber()).isNull();
+    assertThat(wipedEntity.getContactBase().get().getEmailAddress()).isNull();
+    assertThat(wipedEntity.getContactBase().get().getLocalizedPostalInfo()).isNull();
+    assertThat(wipedEntity.getContactBase().get().getInternationalizedPostalInfo()).isNull();
+    assertThat(wipedEntity.getContactBase().get().getVoiceNumber()).isNull();
+    assertThat(wipedEntity.getContactBase().get().getFaxNumber()).isNull();
   }
 
   private ContactHistory createContactHistory(ContactBase contact) {
