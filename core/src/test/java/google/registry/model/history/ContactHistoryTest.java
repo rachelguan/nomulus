@@ -134,7 +134,7 @@ public class ContactHistoryTest extends EntityTestCase {
                     .hasFieldsEqualTo(jpaTm().loadByEntity(contactHistory).getContactBase().get()));
   }
 
-  @Test
+  @TestSqlOnly
   void testWipeOutPii_assertsAllPiiFieldsAreNull() {
     ContactHistory originalEntity =
         createContactHistory(

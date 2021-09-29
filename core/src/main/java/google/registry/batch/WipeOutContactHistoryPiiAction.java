@@ -79,7 +79,9 @@ public class WipeOutContactHistoryPiiAction implements Runnable {
         numOfWipedEntities =
             jpaTm()
                 .transact(
-                    () -> wipeOutContactHistoryData(getAllHistoryEntitiesOlderThan(wipeOutTime)));
+                    () ->
+                        wipeOutContactHistoryData(
+                            getNextContactHistoryEntitiesWithPiiBatch(wipeOutTime)));
         totalNumOfWipedEntities += numOfWipedEntities;
       } while (numOfWipedEntities > 0);
       logger.atInfo().log(
@@ -99,11 +101,11 @@ public class WipeOutContactHistoryPiiAction implements Runnable {
   }
 
   /**
-   * Returns a stream of up to {@link #wipeOutQueryBatchSize} {@link ContactHistory} entities that
-   * are prior to @param wipeOutTime.
+   * Returns a stream of up to {@link #wipeOutQueryBatchSize} {@link ContactHistory} entities
+   * containing PII that are prior to @param wipeOutTime.
    */
   @VisibleForTesting
-  Stream<ContactHistory> getAllHistoryEntitiesOlderThan(DateTime wipeOutTime) {
+  Stream<ContactHistory> getNextContactHistoryEntitiesWithPiiBatch(DateTime wipeOutTime) {
     // email is one of the required fields in EPP, meaning it's initially not null.
     // Therefore, checking if it's null is one way to avoid processing contact history entities
     // that have been processed previously. Refer to RFC 5733 for more information.
@@ -116,7 +118,7 @@ public class WipeOutContactHistoryPiiAction implements Runnable {
         .getResultStream();
   }
 
-  /** Wipes out the PII of each of the {@link ContactHistory} entities of the stream. */
+  /** Wipes out the PII of each of the {@link ContactHistory} entities in the stream. */
   @VisibleForTesting
   int wipeOutContactHistoryData(Stream<ContactHistory> contactHistoryEntities) {
     AtomicInteger numOfEntities = new AtomicInteger(0);

@@ -250,7 +250,7 @@
   <cron>
     <url><![CDATA[/_dr/task/wipeOutContactHistoryPii]]></url>
     <description>
-      This job runs weekly to wipe out pii fields of ContactHistory entities
+      This job runs weekly to wipe out PII fields of ContactHistory entities
       that have been in the database for a certain period of time.
     </description>
     <schedule>every monday synchronized</schedule>

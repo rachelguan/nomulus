@@ -391,7 +391,7 @@
     <url-pattern>/_dr/task/relockDomain</url-pattern>
   </servlet-mapping>
 
-  <!-- Background action to wipe out pii fields of ContactHistory entities that
+  <!-- Background action to wipe out PII fields of ContactHistory entities that
 have been in the database for a certain period of time. -->
   <servlet-mapping>
     <servlet-name>backend-servlet</servlet-name>
