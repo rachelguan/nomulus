@@ -78,7 +78,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension.xml");
+        .verifySent("uniform_rapid_suspension.xml").verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,ns2.example.com");
@@ -97,7 +97,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_existing_host.xml");
+        .verifySent("uniform_rapid_suspension_existing_host.xml").verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo ");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,urs2.example.com");
@@ -111,7 +111,7 @@ class UniformRapidSuspensionCommandTest
         "--domain_name=evil.tld",
         "--hosts=urs1.example.com,urs2.example.com",
         "--renew_one_year=false");
-    eppVerifier.verifySentAny();
+    eppVerifier.verifySentAny().verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertNotInStdout("--locks_to_preserve");
@@ -124,7 +124,7 @@ class UniformRapidSuspensionCommandTest
           .addStatusValue(StatusValue.SERVER_DELETE_PROHIBITED)
           .build());
     runCommandForced("--domain_name=evil.tld", "--renew_one_year=false");
-    eppVerifier.verifySentAny();
+    eppVerifier.verifySentAny().verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--locks_to_preserve serverDeleteProhibited");
@@ -147,7 +147,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_with_client_hold.xml");
+        .verifySent("uniform_rapid_suspension_with_client_hold.xml").verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,ns2.example.com");
@@ -165,7 +165,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo.xml");
+        .verifySent("uniform_rapid_suspension_undo.xml").verifyNoMoreSent();
     assertNotInStdout("--undo");  // Undo shouldn't print a new undo command.
   }
 
@@ -181,7 +181,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo_preserve.xml");
+        .verifySent("uniform_rapid_suspension_undo_preserve.xml").verifyNoMoreSent();
     assertNotInStdout("--undo");  // Undo shouldn't print a new undo command.
   }
 
@@ -197,7 +197,7 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo_client_hold.xml");
+        .verifySent("uniform_rapid_suspension_undo_client_hold.xml").verifyNoMoreSent();
     assertNotInStdout("--undo"); // Undo shouldn't print a new undo command.
   }
 
@@ -208,11 +208,7 @@ class UniformRapidSuspensionCommandTest
             .asBuilder()
             .addStatusValue(StatusValue.SERVER_DELETE_PROHIBITED)
             .build());
-<<<<<<< HEAD
-    runCommandForced("--domain_name=evil.tld");
-=======
     runCommandForced("--domain_name=evil.tld", "--renew_one_year=false");
->>>>>>> 95519f6fe (Add autorenews to URS (#1343))
     eppVerifier.verifySentAny();
     assertInStdout("<superuser:autorenews>false</superuser:autorenews>");
   }
@@ -228,19 +224,13 @@ class UniformRapidSuspensionCommandTest
         "--domain_name=evil.tld",
         "--undo",
         "--hosts=ns1.example.com,ns2.example.com",
-<<<<<<< HEAD
-        "--restore_client_hold");
-=======
         "--restore_client_hold",
         "--renew_one_year=false");
->>>>>>> 95519f6fe (Add autorenews to URS (#1343))
     eppVerifier.verifySentAny();
     assertInStdout("<superuser:autorenews>true</superuser:autorenews>");
   }
 
   @Test
-<<<<<<< HEAD
-=======
   void testRenewOneYear_renewFlowIsTriggered() throws Exception {
     persistResource(
         persistActiveDomain(
@@ -253,6 +243,7 @@ class UniformRapidSuspensionCommandTest
 
     runCommandForced("--domain_name=evil.tld", "--renew_one_year=true");
 
+    // renew flow is triggered
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
@@ -260,14 +251,16 @@ class UniformRapidSuspensionCommandTest
             "domain_renew.xml",
             ImmutableMap.of("DOMAIN", "evil.tld", "EXPDATE", "2022-10-01", "YEARS", "1"));
 
+    // update flow is triggered
     eppVerifier.verifySentAny();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
+
+    // assert that no other flows are triggered after the renew and update flows
     eppVerifier.verifyNoMoreSent();
   }
 
   @Test
->>>>>>> 95519f6fe (Add autorenews to URS (#1343))
   void testFailure_locksToPreserveWithoutUndo() {
     persistActiveDomain("evil.tld");
     IllegalArgumentException thrown =
