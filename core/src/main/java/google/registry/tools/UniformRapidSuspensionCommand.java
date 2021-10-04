@@ -163,7 +163,10 @@ final class UniformRapidSuspensionCommand extends MutatingEppToolCommand {
                   .toString(DateTimeFormat.forPattern("YYYY-MM-dd")),
               // period is the number of years to renew the registration for
               "period",
-              String.valueOf(1)));
+              String.valueOf(1),
+              "reason",
+              (undo ? "Undo " : "") + "Uniform Rapid Suspension",
+              "requestedByRegistrar", Boolean.toString(false)));
     }
     setSoyTemplate(
         UniformRapidSuspensionSoyInfo.getInstance(),
