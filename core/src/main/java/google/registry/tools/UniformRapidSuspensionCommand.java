@@ -149,6 +149,7 @@ final class UniformRapidSuspensionCommand extends MutatingEppToolCommand {
       statusesToApply = URS_LOCKS;
     }
 
+    // trigger renew flow
     if (renewOneYear) {
       setSoyTemplate(DomainRenewSoyInfo.getInstance(), DomainRenewSoyInfo.RENEWDOMAIN);
       addSoyRecord(
@@ -164,6 +165,8 @@ final class UniformRapidSuspensionCommand extends MutatingEppToolCommand {
               "period",
               String.valueOf(1)));
     }
+
+    // trigger update flow
     setSoyTemplate(
         UniformRapidSuspensionSoyInfo.getInstance(),
         UniformRapidSuspensionSoyInfo.UNIFORMRAPIDSUSPENSION);
