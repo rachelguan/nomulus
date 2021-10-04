@@ -15,7 +15,6 @@
 package google.registry.tools;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static google.registry.model.EppResourceUtils.checkResourcesExist;
@@ -153,7 +152,7 @@ final class UniformRapidSuspensionCommand extends MutatingEppToolCommand {
     if (renewOneYear) {
       setSoyTemplate(DomainRenewSoyInfo.getInstance(), DomainRenewSoyInfo.RENEWDOMAIN);
       addSoyRecord(
-          isNullOrEmpty(CLIENT_ID) ? domain.getCurrentSponsorRegistrarId() : CLIENT_ID,
+          CLIENT_ID,
           new SoyMapData(
               "domainName",
               domain.getDomainName(),

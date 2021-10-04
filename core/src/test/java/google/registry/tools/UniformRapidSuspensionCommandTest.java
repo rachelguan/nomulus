@@ -78,7 +78,8 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension.xml")
+        .verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,ns2.example.com");
@@ -97,7 +98,8 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_existing_host.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension_existing_host.xml")
+        .verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo ");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,urs2.example.com");
@@ -147,7 +149,8 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_with_client_hold.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension_with_client_hold.xml")
+        .verifyNoMoreSent();
     assertInStdout("uniform_rapid_suspension --undo");
     assertInStdout("--domain_name evil.tld");
     assertInStdout("--hosts ns1.example.com,ns2.example.com");
@@ -165,7 +168,8 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension_undo.xml")
+        .verifyNoMoreSent();
     assertNotInStdout("--undo");  // Undo shouldn't print a new undo command.
   }
 
@@ -181,7 +185,8 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo_preserve.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension_undo_preserve.xml")
+        .verifyNoMoreSent();
     assertNotInStdout("--undo");  // Undo shouldn't print a new undo command.
   }
 
@@ -197,12 +202,13 @@ class UniformRapidSuspensionCommandTest
     eppVerifier
         .expectRegistrarId("CharlestonRoad")
         .expectSuperuser()
-        .verifySent("uniform_rapid_suspension_undo_client_hold.xml").verifyNoMoreSent();
+        .verifySent("uniform_rapid_suspension_undo_client_hold.xml")
+        .verifyNoMoreSent();
     assertNotInStdout("--undo"); // Undo shouldn't print a new undo command.
   }
 
   @Test
-  void testAutorenews_setToFalsebyDefault() throws Exception {
+  void testAutorenews_setToFalseByDefault() throws Exception {
     persistResource(
         newDomainBase("evil.tld")
             .asBuilder()
@@ -290,11 +296,7 @@ class UniformRapidSuspensionCommandTest
   void testFailure_renewOneYearRequired() {
     persistActiveDomain("evil.tld");
     ParameterException thrown =
-        assertThrows(
-            ParameterException.class,
-            () ->
-                runCommandForced(
-                    "--domain_name=evil.tld"));
+        assertThrows(ParameterException.class, () -> runCommandForced("--domain_name=evil.tld"));
     assertThat(thrown).hasMessageThat().contains("--renew_one_year");
   }
 
