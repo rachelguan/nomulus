@@ -202,7 +202,7 @@ class UniformRapidSuspensionCommandTest
   }
 
   @Test
-  void testAutorenews_setToFalsebyDefault() throws Exception {
+  void testAutorenews_setToFalseByDefault() throws Exception {
     persistResource(
         newDomainBase("evil.tld")
             .asBuilder()
