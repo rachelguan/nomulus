@@ -164,6 +164,7 @@ final class UniformRapidSuspensionCommand extends MutatingEppToolCommand {
               // period is the number of years to renew the registration for
               "period",
               String.valueOf(1),
+              // use the same values for reason and requestedByRegistrar from update flow
               "reason",
               (undo ? "Undo " : "") + "Uniform Rapid Suspension",
               "requestedByRegistrar",
