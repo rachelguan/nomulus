@@ -537,7 +537,19 @@ class DomainRenewFlowTest extends ResourceFlowTestCase<DomainRenewFlow, DomainBa
   @TestOfyAndSql
   void testSuccess_metaData_withReasonAndRequestedByRegistrar() throws Exception {
     eppRequestSource = EppRequestSource.TOOL;
-    setEppInput("domain_renew_metadata.xml");
+    setEppInput(
+        "domain_renew_metadata_with_all_fields.xml",
+        ImmutableMap.of(
+            "DOMAIN",
+            "example.tld",
+            "EXPDATE",
+            "2000-04-03",
+            "YEARS",
+            "1",
+            "REASON",
+            "domain-renew-test",
+            "REQUESTED",
+            "false"));
     persistDomain();
     runFlow();
     DomainBase domain = reloadResourceByForeignKey();
@@ -553,18 +565,19 @@ class DomainRenewFlowTest extends ResourceFlowTestCase<DomainRenewFlow, DomainBa
   }
 
   @TestOfyAndSql
-  void testSuccess_metaData_withRequestedByRegistrar() throws Exception {
+  void testSuccess_metaData_withRequestedByRegistrarOnly() throws Exception {
     eppRequestSource = EppRequestSource.TOOL;
-    setEppInput("domain_renew_metadata_requestedByRegistrar_only.xml");
+    setEppInput("domain_renew_metadata_with_requestedByRegistrar_only.xml");
+
     persistDomain();
     runFlow();
-    DomainBase domain = reloadResourceByForeignKey();
+    DomainBase domain1 = reloadResourceByForeignKey();
     assertAboutDomains()
-        .that(domain)
+        .that(domain1)
         .hasOneHistoryEntryEachOfTypes(
             HistoryEntry.Type.DOMAIN_CREATE, HistoryEntry.Type.DOMAIN_RENEW);
     assertAboutHistoryEntries()
-        .that(getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_RENEW))
+        .that(getOnlyHistoryEntryOfType(domain1, HistoryEntry.Type.DOMAIN_RENEW))
         .hasMetadataReason(null)
         .and()
         .hasMetadataRequestedByRegistrar(true);
