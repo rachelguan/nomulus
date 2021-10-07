@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import google.registry.flows.EppException;
+import google.registry.flows.EppRequestSource;
 import google.registry.flows.FlowUtils.UnknownCurrencyEppException;
 import google.registry.flows.ResourceFlowTestCase;
 import google.registry.flows.ResourceFlowUtils.ResourceDoesNotExistException;
@@ -531,6 +532,42 @@ class DomainRenewFlowTest extends ResourceFlowTestCase<DomainRenewFlow, DomainBa
             .setMsg("Domain was auto-renewed.")
             .setParent(historyEntryDomainRenew)
             .build());
+  }
+
+  @TestOfyAndSql
+  void testSuccess_metaData_withReasonAndRequestedByRegistrar() throws Exception {
+    eppRequestSource = EppRequestSource.TOOL;
+    setEppInput("domain_renew_metadata.xml");
+    persistDomain();
+    runFlow();
+    DomainBase domain = reloadResourceByForeignKey();
+    assertAboutDomains()
+        .that(domain)
+        .hasOneHistoryEntryEachOfTypes(
+            HistoryEntry.Type.DOMAIN_CREATE, HistoryEntry.Type.DOMAIN_RENEW);
+    assertAboutHistoryEntries()
+        .that(getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_RENEW))
+        .hasMetadataReason("domain-renew-test")
+        .and()
+        .hasMetadataRequestedByRegistrar(false);
+  }
+
+  @TestOfyAndSql
+  void testSuccess_metaData_withRequestedByRegistrar() throws Exception {
+    eppRequestSource = EppRequestSource.TOOL;
+    setEppInput("domain_renew_metadata_requestedByRegistrar_only.xml");
+    persistDomain();
+    runFlow();
+    DomainBase domain = reloadResourceByForeignKey();
+    assertAboutDomains()
+        .that(domain)
+        .hasOneHistoryEntryEachOfTypes(
+            HistoryEntry.Type.DOMAIN_CREATE, HistoryEntry.Type.DOMAIN_RENEW);
+    assertAboutHistoryEntries()
+        .that(getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_RENEW))
+        .hasMetadataReason(null)
+        .and()
+        .hasMetadataRequestedByRegistrar(true);
   }
 
   @TestOfyAndSql
