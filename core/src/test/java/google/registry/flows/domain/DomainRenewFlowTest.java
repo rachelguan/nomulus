@@ -538,7 +538,7 @@ class DomainRenewFlowTest extends ResourceFlowTestCase<DomainRenewFlow, DomainBa
   void testSuccess_metaData_withReasonAndRequestedByRegistrar() throws Exception {
     eppRequestSource = EppRequestSource.TOOL;
     setEppInput(
-        "domain_renew_metadata_with_all_fields.xml",
+        "domain_renew_metadata_with_reason_and_requestedByRegistrar.xml",
         ImmutableMap.of(
             "DOMAIN",
             "example.tld",
