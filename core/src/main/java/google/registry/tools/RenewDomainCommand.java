@@ -94,7 +94,7 @@ final class RenewDomainCommand extends MutatingEppToolCommand {
       }
       if (reason != null) {
         checkArgumentNotNull(
-            requestedByRegistrar, "registrar_request is required when reason is specified");
+            requestedByRegistrar, "--registrar_request is required when --reason is specified");
         soyMapData.put("reason", reason);
       }
       addSoyRecord(

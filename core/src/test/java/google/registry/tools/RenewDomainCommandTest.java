@@ -235,6 +235,6 @@ public class RenewDomainCommandTest extends EppToolCommandTestCase<RenewDomainCo
             () -> runCommandForced("domain.tld", "--period=1", "--reason=testing_only"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("registrar_request is required when reason is specified");
+        .isEqualTo("--registrar_request is required when --reason is specified");
   }
 }
