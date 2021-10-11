@@ -107,9 +107,11 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
   }
 
   /**
-   * Returns a list of registrars that should receive expiring notification emails. There are two
-   * certificates that should be considered (the main certificate and failOver certificate). The
-   * registrars should receive notifications if one of the certificate checks returns true.
+   * Returns a list of registrars that should receive expiring notification emails.
+   *
+   * <p> There are two certificates that should be considered (the main certificate and failOver
+   * certificate). The registrars should receive notifications if one of the certificate checks
+   * returns true.
    */
   @VisibleForTesting
   ImmutableList<RegistrarInfo> getRegistrarsWithExpiringCertificates() {
@@ -122,12 +124,12 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
                     registrar,
                     registrar.getClientCertificate().isPresent()
                         && certificateChecker.shouldReceiveExpiringNotification(
-                            registrar.getLastExpiringCertNotificationSentDate(),
-                            registrar.getClientCertificate().get()),
+                        registrar.getLastExpiringCertNotificationSentDate(),
+                        registrar.getClientCertificate().get()),
                     registrar.getFailoverClientCertificate().isPresent()
                         && certificateChecker.shouldReceiveExpiringNotification(
-                            registrar.getLastExpiringFailoverCertNotificationSentDate(),
-                            registrar.getFailoverClientCertificate().get())))
+                        registrar.getLastExpiringFailoverCertNotificationSentDate(),
+                        registrar.getFailoverClientCertificate().get())))
         .filter(
             registrarInfo ->
                 registrarInfo.isCertExpiring() || registrarInfo.isFailOverCertExpiring())
@@ -146,22 +148,28 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
       Optional<String> certificate) {
     if (!certificate.isPresent()
         || !certificateChecker.shouldReceiveExpiringNotification(
-            lastExpiringCertNotificationSentDate, certificate.get())) {
+        lastExpiringCertNotificationSentDate, certificate.get())) {
       return false;
     }
     try {
-      ImmutableSet<InternetAddress> recipients = getEmailAddresses(registrar, Type.TECH);
+      ImmutableSet<InternetAddress> techEmails = getEmailAddresses(registrar, Type.TECH);
+      ImmutableSet<InternetAddress> adminEmails = getEmailAddresses(registrar, Type.ADMIN);
+      ImmutableSet<InternetAddress> recipients = techEmails;
+      ImmutableSet<InternetAddress> ccs = adminEmails;
       Date expirationDate = certificateChecker.getCertificate(certificate.get()).getNotAfter();
       logger.atInfo().log(
-          "Registrar %s should receive an email that its %s SSL certificate will expire on %s.",
-          registrar.getRegistrarName(),
+          " The %s SSL certificate of registrar '%s' will expire on %s.",
           certificateType.getDisplayName(),
+          registrar.getRegistrarName(),
           expirationDate.toString());
-      if (recipients.isEmpty()) {
+      if (techEmails.isEmpty() && adminEmails.isEmpty()) {
         logger.atWarning().log(
             "Registrar %s contains no email addresses to receive notification email.",
             registrar.getRegistrarName());
         return false;
+      } else if (techEmails.isEmpty()) {
+        recipients = adminEmails;
+        ccs = ImmutableSet.of();
       }
       sendEmailService.sendEmail(
           EmailMessage.newBuilder()
@@ -174,7 +182,7 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
                       expirationDate,
                       registrar.getRegistrarId()))
               .setRecipients(recipients)
-              .setCcs(getEmailAddresses(registrar, Type.ADMIN))
+              .setCcs(ccs)
               .build());
       /*
        * A duration time offset is used here to ensure that date comparison between two
@@ -200,37 +208,37 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
       Registrar registrar, DateTime now, CertificateType certificateType) {
     try {
       tm().transact(
-              () -> {
-                Registrar.Builder newRegistrar = tm().loadByEntity(registrar).asBuilder();
-                switch (certificateType) {
-                  case PRIMARY:
-                    newRegistrar.setLastExpiringCertNotificationSentDate(now);
-                    tm().put(newRegistrar.build());
-                    logger.atInfo().log(
-                        "Updated last notification email sent date to %s for %s certificate of "
-                            + "registrar %s.",
-                        DATE_FORMATTER.print(now),
-                        certificateType.getDisplayName(),
-                        registrar.getRegistrarName());
-                    break;
-                  case FAILOVER:
-                    newRegistrar.setLastExpiringFailoverCertNotificationSentDate(now);
-                    tm().put(newRegistrar.build());
-                    logger.atInfo().log(
-                        "Updated last notification email sent date to %s for %s certificate of "
-                            + "registrar %s.",
-                        DATE_FORMATTER.print(now),
-                        certificateType.getDisplayName(),
-                        registrar.getRegistrarName());
-                    break;
-                  default:
-                    throw new IllegalArgumentException(
-                        String.format(
-                            "Unsupported certificate type: %s being passed in when updating "
-                                + "the last notification sent date to registrar %s.",
-                            certificateType.toString(), registrar.getRegistrarName()));
-                }
-              });
+          () -> {
+            Registrar.Builder newRegistrar = tm().loadByEntity(registrar).asBuilder();
+            switch (certificateType) {
+              case PRIMARY:
+                newRegistrar.setLastExpiringCertNotificationSentDate(now);
+                tm().put(newRegistrar.build());
+                logger.atInfo().log(
+                    "Updated last notification email sent date to %s for %s certificate of "
+                        + "registrar %s.",
+                    DATE_FORMATTER.print(now),
+                    certificateType.getDisplayName(),
+                    registrar.getRegistrarName());
+                break;
+              case FAILOVER:
+                newRegistrar.setLastExpiringFailoverCertNotificationSentDate(now);
+                tm().put(newRegistrar.build());
+                logger.atInfo().log(
+                    "Updated last notification email sent date to %s for %s certificate of "
+                        + "registrar %s.",
+                    DATE_FORMATTER.print(now),
+                    certificateType.getDisplayName(),
+                    registrar.getRegistrarName());
+                break;
+              default:
+                throw new IllegalArgumentException(
+                    String.format(
+                        "Unsupported certificate type: %s being passed in when updating "
+                            + "the last notification sent date to registrar %s.",
+                        certificateType.toString(), registrar.getRegistrarName()));
+            }
+          });
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
