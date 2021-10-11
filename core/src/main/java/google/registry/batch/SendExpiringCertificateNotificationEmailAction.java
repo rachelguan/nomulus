@@ -55,6 +55,7 @@ import org.joda.time.format.DateTimeFormatter;
     path = SendExpiringCertificateNotificationEmailAction.PATH,
     auth = Auth.AUTH_INTERNAL_OR_ADMIN)
 public class SendExpiringCertificateNotificationEmailAction implements Runnable {
+
   public static final String PATH = "/_dr/task/sendExpiringCertificateNotificationEmail";
   /**
    * Used as an offset when storing the last notification email sent date.
@@ -96,11 +97,12 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
   public void run() {
     response.setContentType(MediaType.PLAIN_TEXT_UTF_8);
     try {
-      int totalNumOfEmails = sendNotificationEmails();
-      String message = String
-          .format("Sent %d expiring certificate notification emails in total successfully.",
-              totalNumOfEmails);
+      int numEmailsSent = sendNotificationEmails();
+      String message =
+          String.format(
+              "Done. Sent %d expiring certificate notification emails in total.", numEmailsSent);
       logger.atInfo().log(message);
+      response.setStatus(SC_OK);
       response.setPayload(message);
     } catch (Exception e) {
       logger.atWarning().withCause(e).log(
@@ -267,8 +269,6 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
         emailsSent++;
       }
     }
-    logger.atInfo().log(
-        "Attempted to send %d expiring certificate notification emails.", emailsSent);
     return emailsSent;
   }
 
@@ -331,6 +331,7 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
 
   @AutoValue
   public abstract static class RegistrarInfo {
+
     static RegistrarInfo create(
         Registrar registrar, boolean isCertExpiring, boolean isFailOverCertExpiring) {
       return new AutoValue_SendExpiringCertificateNotificationEmailAction_RegistrarInfo(
