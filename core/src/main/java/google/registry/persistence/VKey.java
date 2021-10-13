@@ -15,14 +15,19 @@
 package google.registry.persistence;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static google.registry.util.PreconditionsUtils.checkArgumentNotNull;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.googlecode.objectify.Key;
 import google.registry.model.BackupGroupRoot;
 import google.registry.model.ImmutableObject;
 import google.registry.model.translators.VKeyTranslatorFactory;
+import google.registry.util.SerializeUtils;
 import java.io.Serializable;
+import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -224,6 +229,49 @@ public class VKey<T> extends ImmutableObject implements Serializable {
     return VKeyTranslatorFactory.createVKey(key);
   }
 
+  /** Construct a string representation of a Vkey. */
+  public String stringify() {
+    // class type is required to create a vkey
+    String key = "kind:" + this.getKind().getName();
+    if (maybeGetSqlKey().isPresent()) {
+      key +=
+          "|sql:" + Base64.getEncoder().encodeToString(SerializeUtils.serialize(this.getSqlKey()));
+    }
+    if (maybeGetOfyKey().isPresent()) {
+      key += "|ofy:" + this.getOfyKey().getString();
+    }
+    return key;
+  }
+
+  /** Construct a Vkey from the string representation of a key. */
+  // TODO: will move this method up to where other create() are once this is fully done tested with
+  //  stringify()
+
+  public static <T> VKey<T> create(String keyString) throws Exception {
+    ImmutableMap<String, String> kvs =
+        ImmutableMap.copyOf(Splitter.on("|").withKeyValueSeparator(":").split(keyString));
+    checkNotNull(kvs.get("kind"), "Class type is not specified");
+    Class classType = Class.forName(kvs.get("kind"));
+
+    if (kvs.containsKey("sql") && kvs.containsKey("ofy")) {
+      String rawString = kvs.get("ofy");
+      Key ofyKey = Key.create(rawString);
+      byte[] converted = Base64.getDecoder().decode(kvs.get("sql"));
+      Serializable sqlKey = SerializeUtils.deserialize(Serializable.class, converted);
+      return VKey.create(classType, sqlKey, ofyKey);
+
+    } else if (kvs.containsKey("sql")) {
+      byte[] converted = Base64.getDecoder().decode(kvs.get("sql"));
+      Serializable sqlKey = SerializeUtils.deserialize(Serializable.class, converted);
+      return VKey.createSql(classType, sqlKey);
+
+    } else if (kvs.containsKey("ofy")) {
+      return VKey.createOfy(classType, Key.create(kvs.get("ofy")));
+    } else {
+      throw new Exception("no valid keys in key string");
+    }
+  }
+
   /**
    * Construct a VKey from the string representation of an ofy key.
    *
@@ -233,4 +281,5 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   public static <T> VKey<T> fromWebsafeKey(String ofyKeyRepr) {
     return from(Key.create(ofyKeyRepr));
   }
+
 }
