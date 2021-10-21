@@ -22,6 +22,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Base64;
 import javax.annotation.Nullable;
 
 /** Utilities for easy serialization with informative error messages. */
@@ -47,7 +49,29 @@ public final class SerializeUtils {
   }
 
   /**
-   * Turns a byte array into an object.
+   * Turns an object into a encoded string that can be used safely as a URI query parameter.
+   *
+   * @return stringified object
+   */
+  public static String stringify(Serializable object) {
+    checkNotNull(object, "Object cannot be null");
+    return Base64.getUrlEncoder().encodeToString(SerializeUtils.serialize(object));
+  }
+
+  /**
+   * Turns a string encoded by stringify() into an object.
+   *
+   * @return parsed object
+   */
+  @Nullable
+  public static <T> T parse(Class<T> type, String objectString) {
+    checkNotNull(type, "Class type is not specified");
+    checkNotNull(objectString, "Object string cannot be null");
+    return SerializeUtils.deserialize(type, Base64.getUrlDecoder().decode(objectString));
+  }
+
+  /**
+   * Turns a byte string into an object.
    *
    * @return deserialized object or {@code null} if {@code objectBytes} is {@code null}
    */

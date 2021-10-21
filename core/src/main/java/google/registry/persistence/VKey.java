@@ -27,7 +27,6 @@ import google.registry.model.ImmutableObject;
 import google.registry.model.translators.VKeyTranslatorFactory;
 import google.registry.util.SerializeUtils;
 import java.io.Serializable;
-import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -40,6 +39,13 @@ import javax.annotation.Nullable;
 public class VKey<T> extends ImmutableObject implements Serializable {
 
   private static final long serialVersionUID = -5291472863840231240L;
+
+  private static final String SQL_LOOKUP_KEY = "sql";
+  private static final String OFY_LOOKUP_KEY = "ofy";
+  private static final String CLASS_TYPE = "kind";
+
+  private static final String KV_SEPARATOR = ":";
+  private static final String DELIMITER = "@";
 
   // The SQL key for the referenced entity.
   Serializable sqlKey;
@@ -229,46 +235,48 @@ public class VKey<T> extends ImmutableObject implements Serializable {
     return VKeyTranslatorFactory.createVKey(key);
   }
 
-  /** Construct a string representation of a Vkey. */
+  /** Construct a string representation of a Vkey */
   public String stringify() {
     // class type is required to create a vkey
-    String key = "kind:" + this.getKind().getName();
+    String key = CLASS_TYPE + KV_SEPARATOR + getKind().getName();
     if (maybeGetSqlKey().isPresent()) {
-      key +=
-          "|sql:" + Base64.getEncoder().encodeToString(SerializeUtils.serialize(this.getSqlKey()));
+      key += DELIMITER + SQL_LOOKUP_KEY + KV_SEPARATOR + SerializeUtils.stringify(getSqlKey());
     }
     if (maybeGetOfyKey().isPresent()) {
-      key += "|ofy:" + this.getOfyKey().getString();
+      key += DELIMITER + OFY_LOOKUP_KEY + KV_SEPARATOR + getOfyKey().getString();
     }
     return key;
   }
 
-  /** Construct a Vkey from the string representation of a key. */
+  /** Construct a Vkey from the string representation of a key */
   // TODO: will move this method up to where other create() are once this is fully done tested with
   //  stringify()
 
   public static <T> VKey<T> create(String keyString) throws Exception {
-    ImmutableMap<String, String> kvs =
-        ImmutableMap.copyOf(Splitter.on("|").withKeyValueSeparator(":").split(keyString));
-    checkNotNull(kvs.get("kind"), "Class type is not specified");
-    Class classType = Class.forName(kvs.get("kind"));
-
-    if (kvs.containsKey("sql") && kvs.containsKey("ofy")) {
-      String rawString = kvs.get("ofy");
-      Key ofyKey = Key.create(rawString);
-      byte[] converted = Base64.getDecoder().decode(kvs.get("sql"));
-      Serializable sqlKey = SerializeUtils.deserialize(Serializable.class, converted);
-      return VKey.create(classType, sqlKey, ofyKey);
-
-    } else if (kvs.containsKey("sql")) {
-      byte[] converted = Base64.getDecoder().decode(kvs.get("sql"));
-      Serializable sqlKey = SerializeUtils.deserialize(Serializable.class, converted);
-      return VKey.createSql(classType, sqlKey);
-
-    } else if (kvs.containsKey("ofy")) {
-      return VKey.createOfy(classType, Key.create(kvs.get("ofy")));
+    if (!keyString.startsWith(CLASS_TYPE + KV_SEPARATOR)) {
+      // to handle the existing ofykey string
+      return fromWebsafeKey(keyString);
     } else {
-      throw new Exception("no valid keys in key string");
+      ImmutableMap<String, String> kvs =
+          ImmutableMap.copyOf(
+              Splitter.on(DELIMITER).withKeyValueSeparator(KV_SEPARATOR).split(keyString));
+      checkNotNull(kvs.get(CLASS_TYPE), "Class type is not specified");
+      Class classType = Class.forName(kvs.get(CLASS_TYPE));
+
+      if (kvs.containsKey(SQL_LOOKUP_KEY) && kvs.containsKey(OFY_LOOKUP_KEY)) {
+        Key ofyKey = Key.create(kvs.get(OFY_LOOKUP_KEY));
+        Serializable sqlKey = SerializeUtils.parse(Serializable.class, kvs.get(SQL_LOOKUP_KEY));
+        return VKey.create(classType, sqlKey, ofyKey);
+
+      } else if (kvs.containsKey(SQL_LOOKUP_KEY)) {
+        Serializable sqlKey = SerializeUtils.parse(Serializable.class, kvs.get(SQL_LOOKUP_KEY));
+        return VKey.createSql(classType, sqlKey);
+
+      } else if (kvs.containsKey(OFY_LOOKUP_KEY)) {
+        return VKey.createOfy(classType, Key.create(kvs.get(OFY_LOOKUP_KEY)));
+      } else {
+        throw new Exception("no valid keys in key string");
+      }
     }
   }
 

@@ -16,9 +16,12 @@ package google.registry.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.util.SerializeUtils.deserialize;
+import static google.registry.util.SerializeUtils.parse;
 import static google.registry.util.SerializeUtils.serialize;
+import static google.registry.util.SerializeUtils.stringify;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.Serializable;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for {@link SerializeUtils}. */
@@ -60,5 +63,36 @@ class SerializeUtilsTest {
             IllegalArgumentException.class,
             () -> deserialize(String.class, new byte[] {(byte) 0xff}));
     assertThat(thrown).hasMessageThat().contains("Unable to deserialize: objectBytes=FF");
+  }
+
+  @Test
+  void testStringifyParse_stringValue_maintainsValue() {
+    assertThat(parse(Serializable.class, stringify("hello"))).isEqualTo("hello");
+  }
+
+  @Test
+  void testStringifyParse_longValue_maintainsValue() {
+    long value = 12345;
+    assertThat(parse(Serializable.class, stringify(value))).isEqualTo(value);
+  }
+
+  @Test
+  void testStringify_nullValue_throwsException() {
+    NullPointerException thrown = assertThrows(NullPointerException.class, () -> stringify(null));
+    assertThat(thrown).hasMessageThat().contains("Object cannot be null");
+  }
+
+  @Test
+  void testParse_nullObjectStringValue_throwsException() {
+    NullPointerException thrown =
+        assertThrows(NullPointerException.class, () -> parse(null, "test"));
+    assertThat(thrown).hasMessageThat().contains("Class type is not specified");
+  }
+
+  @Test
+  void testStringify_nullClassTypeValue_throwsException() {
+    NullPointerException thrown =
+        assertThrows(NullPointerException.class, () -> parse(String.class, null));
+    assertThat(thrown).hasMessageThat().contains("Object string cannot be null");
   }
 }

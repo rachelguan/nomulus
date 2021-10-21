@@ -24,11 +24,10 @@ import com.googlecode.objectify.annotation.Entity;
 import google.registry.model.billing.BillingEvent.OneTime;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.registrar.RegistrarContact;
+import google.registry.model.translators.VKeyTranslatorFactory;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.TestObject;
-import google.registry.util.SerializeUtils;
-import java.io.Serializable;
-import java.util.Base64;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -41,6 +40,11 @@ class VKeyTest {
           .withDatastoreAndCloudSql()
           .withOfyTestEntities(TestObject.class)
           .build();
+
+  @BeforeAll
+  static void beforeAll() {
+    VKeyTranslatorFactory.addTestEntityClass(TestObject.class);
+  }
 
   @Test
   void testOptionalAccessors() {
@@ -133,20 +137,12 @@ class VKeyTest {
     assertThat(vkey.getSqlKey()).isEqualTo("ROID-1");
   }
 
-  @Test
-  void testSerializeUtils_Vkey_success() throws Exception {
-    Serializable sqlkey = 11111;
-    VKey<TestObject> vkey = VKey.createSql(TestObject.class, sqlkey);
-    byte[] bytes = SerializeUtils.serialize(vkey);
-    String sqlKeyString = Base64.getEncoder().encodeToString(bytes);
-    byte[] converted = Base64.getDecoder().decode(sqlKeyString);
-    VKey<TestObject> newVkey = SerializeUtils.deserialize(VKey.class, converted);
-    assertThat(newVkey).isEqualTo(vkey);
-  }
-  // test with sql only keys
-  // different ways to create sql key: 1) long 2) string
-  // try with more than one kind of class
-  // maybe try to have parent kind as well
+  /**
+   * Test with sqlKeys only Vkeys a sqlKey should be serialiable. Key.create() can take 1) long, or
+   * 2) string
+   *
+   * <p>Vkeys with parent keys should be tested as well
+   */
   @Test
   void testStringifyThenCreate_sqlKeyOnly_testObject_stringKey_success() throws Exception {
     VKey<TestObject> vkey = VKey.createSql(TestObject.class, "foo");
@@ -156,31 +152,18 @@ class VKeyTest {
   }
 
   @Test
-  void testStringifyThenCreate_sqlKeyOnly_domainBase_stringKey_success() throws Exception {
-    VKey<DomainBase> vkey = VKey.createSql(DomainBase.class, "foo");
-    String stringified = vkey.stringify();
-    VKey<TestObject> newKey = VKey.create(stringified);
-    assertThat(newKey).isEqualTo(vkey);
-  }
-
-  @Test
   void testStringifyThenCreate_sqlKeyOnly_testObject_longKey_success() throws Exception {
-    long sqlKey = 12345;
-    VKey<TestObject> vkey = VKey.createSql(TestObject.class, sqlKey);
+    VKey<TestObject> vkey = VKey.createSql(TestObject.class, (long) 12345);
     VKey<TestObject> newKey = VKey.create(vkey.stringify());
     assertThat(newKey).isEqualTo(vkey);
   }
 
-  @Test
-  void testStringifyThenCreate_sqlKeyOnly_domainBase_longKey_success() throws Exception {
-    long sqlKey = 12345;
-    VKey<DomainBase> vkey = VKey.createSql(DomainBase.class, sqlKey);
-    VKey<DomainBase> newKey = VKey.create(vkey.stringify());
-    assertThat(newKey).isEqualTo(vkey);
-  }
-
-  // try different ways to create ofykey
-  // try with different class type
+  /**
+   * Test with ofyKey only Vkeys There should be test cases that test with 1) different Key.create()
+   * 2) object type
+   *
+   * <p>Vkeys with parent keys should be tested as well
+   */
   @Test
   void testStringifyThenCreate_ofyKeyOnly_testObject_success() throws Exception {
     Key<TestObject> key = Key.create(TestObject.class, "tmpKey");
@@ -190,37 +173,19 @@ class VKeyTest {
   }
 
   @Test
-  void testStringifyThenCreate_ofyKeyOnly_domainBase_success() throws Exception {
-    DomainBase domain = newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1"));
-    Key<DomainBase> key = Key.create(domain);
-    VKey<DomainBase> vkey = VKey.createOfy(DomainBase.class, key);
-    VKey<DomainBase> newVkey = VKey.create(vkey.stringify());
-    assertThat(vkey).isEqualTo(newVkey);
-  }
-
-  @Test
   void testStringifyThenCreate_ofyKeyOnly_testObject_websafeString_success() throws Exception {
-    // TODO: figure out how to make this work
-
-    // Unknown Key type: TestObject
-    // java.lang.IllegalArgumentException: Unknown Key type: TestObject
-    //
-    // Key<TestObject> key = Key.create(TestObject.create("foo"));
-    // VKey<TestObject> vkey = VKey.fromWebsafeKey(key.getString());
-    // VKey<TestObject> newVkey = VKey.create(vkey.stringify());
-    // assertThat(vkey).isEqualTo(newVkey);
-  }
-
-  @Test
-  void testStringifyThenCreate_ofyKeyOnly_domainBase_websafeString_success() throws Exception {
-    DomainBase domain = newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1"));
-    Key<DomainBase> key = Key.create(domain);
-    VKey<DomainBase> vkey = VKey.fromWebsafeKey(key.getString());
-    VKey<DomainBase> newVkey = VKey.create(vkey.stringify());
+    Key<TestObject> key = Key.create(TestObject.create("foo"));
+    VKey<TestObject> vkey = VKey.fromWebsafeKey(key.getString());
+    VKey<TestObject> newVkey = VKey.create(vkey.stringify());
     assertThat(vkey).isEqualTo(newVkey);
   }
 
-  // test with vkey with both ofy and sql key
+  /**
+   * Test with Vkeys that contain both sqlKey and ofyKey There should be test cases that test with
+   * 1) different Key.create() 2) object type
+   *
+   * <p>Vkeys with parent keys should be tested as well
+   */
   @Test
   void testStringifyThenCreate_sqlAndofyKey_success() throws Exception {
     VKey<TestObject> originalKey1 =
@@ -228,55 +193,13 @@ class VKeyTest {
     String originalKeyString1 = originalKey1.stringify();
     VKey<TestObject> newKey1 = VKey.create(originalKeyString1);
     assertThat(originalKey1).isEqualTo(newKey1);
-
-    VKey<TestObject> originalKey2 =
-        VKey.create(TestObject.class, "sqlkey", Key.create(TestObject.create("test")));
-    String originalKeyString2 = originalKey2.stringify();
-    VKey<TestObject> newKey2 = VKey.create(originalKeyString2);
-    assertThat(originalKey2).isEqualTo(newKey2);
   }
 
   @Test
-  void testStringifyThenCreate_symmetricVkeyViaLong_success() throws Exception {
-    // TODO: figure out why it doesnt work when replacing "foo" with 123, or any long
-
-    // VKey<DomainBase> originalKey =
-    //     new VKey<DomainBase>(DomainBase.class, Key.create(DomainBase.class, 123456), 123456);
-    // String originalKeyString = originalKey.stringify();
-    // VKey<DomainBase> newKey= VKey.create(originalKeyString);
-    // assertThat(originalKey).isEqualTo(newKey);
-    //
-    // long key = 12234;
-    // VKey<DomainBase> originalKey = VKey.create(DomainBase.class,key, Key.create(DomainBase.class,
-    // key) );
-    // String originalKeyString = originalKey.stringify();
-    // VKey<DomainBase> newKey= VKey.create(originalKeyString);
-    // assertThat(originalKey).isEqualTo(newKey);
-  }
-
-  @Test
-  void testStringifyThenCreate_symmetricVkeyViaString_success() throws Exception {
-    VKey<DomainBase> originalKey =
-        new VKey<DomainBase>(DomainBase.class, Key.create(DomainBase.class, "foo"), "foo");
-    String originalKeyString = originalKey.stringify();
-    VKey<DomainBase> newKey = VKey.create(originalKeyString);
-    assertThat(originalKey).isEqualTo(newKey);
-  }
-
-  @Test
-  void testCreate_fromInvalidString_failure() throws Exception {
-    IllegalArgumentException thrown =
-        assertThrows(IllegalArgumentException.class, () -> VKey.create("notAValidVkeyString"));
-    assertThat(thrown).hasMessageThat().contains("is not a valid entry");
-  }
-
-  @Test
-  void testCreate_missingClassType_failure() throws Exception {
-    NullPointerException thrown =
-        assertThrows(
-            NullPointerException.class,
-            () -> VKey.create("kindz:google.registry.testing.TestObject|sql:sqlTestKey"));
-    assertThat(thrown).hasMessageThat().contains("Class type is not specified");
+  void testCreate_createFromExistingOfyKey_success() throws Exception {
+    DomainBase domain = newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1"));
+    String keyString = Key.create(domain).getString();
+    assertThat(VKey.fromWebsafeKey(keyString)).isEqualTo(VKey.create(keyString));
   }
 
   @Entity
