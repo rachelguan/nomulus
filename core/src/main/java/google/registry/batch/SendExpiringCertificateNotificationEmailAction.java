@@ -168,7 +168,8 @@ public class SendExpiringCertificateNotificationEmailAction implements Runnable 
           expirationDate.toString());
       if (recipients.isEmpty() && ccs.isEmpty()) {
         logger.atWarning().log(
-            "Registrar %s contains no email addresses to receive notification email.",
+            "Registrar %s contains no TECH nor ADMIN email addresses to receive notification"
+                + " email.",
             registrar.getRegistrarName());
         return false;
       }
