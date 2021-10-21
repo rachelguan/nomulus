@@ -846,6 +846,13 @@ class DomainDeleteFlowTest extends ResourceFlowTestCase<DomainDeleteFlow, Domain
             .setMsg(
                 "Domain example.tld was deleted by registry administrator with final deletion"
                     + " effective: 2000-07-11T22:00:00.013Z")
+            .setResponseData(
+                ImmutableList.of(
+                    DomainPendingActionNotificationResponse.create(
+                        "example.tld",
+                        true,
+                        deleteHistoryEntry.getTrid(),
+                        DateTime.parse("2000-07-11T22:00:00.013Z"))))
             .build(),
         new PollMessage.OneTime.Builder()
             .setRegistrarId("TheRegistrar")
