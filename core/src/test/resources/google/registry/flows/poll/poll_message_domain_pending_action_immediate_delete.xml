@@ -9,7 +9,7 @@
     </msgQ>
     <resData>
       <domain:panData>
-        <domain:name paResult="true">test.example</domain:name>
+        <domain:name paResult="1">test.example</domain:name>
         <domain:paTRID>
           <clTRID>ABC-12345</clTRID>
           <svTRID>other-trid</svTRID>
