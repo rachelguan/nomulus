@@ -14,6 +14,7 @@
 
 package google.registry.flows.poll;
 
+import static google.registry.flows.FlowUtils.createHistoryKey;
 import static google.registry.testing.DatabaseHelper.createHistoryEntryForEppResource;
 import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.newDomainBase;
@@ -31,6 +32,7 @@ import google.registry.flows.poll.PollRequestFlow.UnexpectedMessageIdException;
 import google.registry.model.contact.ContactHistory;
 import google.registry.model.contact.ContactResource;
 import google.registry.model.domain.DomainBase;
+import google.registry.model.domain.DomainHistory;
 import google.registry.model.eppcommon.Trid;
 import google.registry.model.host.HostHistory;
 import google.registry.model.host.HostResource;
@@ -154,6 +156,29 @@ class PollRequestFlowTest extends FlowTestCase<PollRequestFlow> {
             .build());
     assertTransactionalFlow(false);
     runFlowAssertResponse(loadFile("poll_response_domain_pending_notification.xml"));
+  }
+
+  @TestOfyAndSql
+  void testSuccess_domainPendingActionImmediateDelete() throws Exception {
+    persistResource(
+        new PollMessage.OneTime.Builder()
+            .setRegistrarId(getRegistrarIdForFlow())
+            .setEventTime(clock.nowUtc())
+            .setMsg(
+                String.format(
+                    "Domain %s was deleted by registry administrator with final deletion effective: %s",
+                    domain.getDomainName(), clock.nowUtc().minusMinutes(5)))
+            .setResponseData(
+                ImmutableList.of(
+                    DomainPendingActionNotificationResponse.create(
+                        domain.getDomainName(),
+                        true,
+                        Trid.create("ABC-12345", "other-trid"),
+                        clock.nowUtc())))
+            .setParent(createHistoryEntryForEppResource(domain))
+            .build());
+    assertTransactionalFlow(false);
+    runFlowAssertResponse(loadFile("poll_message_domain_pending_action_immediate_delete.xml"));
   }
 
   @TestOfyAndSql
