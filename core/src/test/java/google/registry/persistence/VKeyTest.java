@@ -141,7 +141,7 @@ class VKeyTest {
   @Test
   void testStringify_sqlOnlyVKey() throws Exception {
     assertThat(VKey.createSql(TestObject.class, "foo").stringify())
-        .isEqualTo("kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw==");
+        .isEqualTo("kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw");
   }
 
   @Test
@@ -152,11 +152,22 @@ class VKeyTest {
   }
 
   @Test
+  void testStringify_vkeyFromWebsafeKey() throws Exception {
+    DomainBase domain = newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1"));
+    Key<DomainBase> key = Key.create(domain);
+    VKey<DomainBase> vkey = VKey.fromWebsafeKey(key.getString());
+    assertThat(vkey.stringify())
+        .isEqualTo(
+            "kind:google.registry.model.domain.DomainBase@sql:rO0ABXQABlJPSUQtMQ@ofy:agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM");
+  }
+
+  @Test
   void testStringify_sqlAndOfyVKey() throws Exception {
     assertThat(
             VKey.create(TestObject.class, "foo", Key.create(TestObject.create("foo"))).stringify())
         .isEqualTo(
-            "kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw==@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M");
+            "kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw@ofy:agR0ZXN0cjELEg9FbnRpdH"
+                + "lHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M");
   }
 
   @Test
@@ -164,13 +175,14 @@ class VKeyTest {
     assertThat(
             VKey.create(TestObject.class, "test", Key.create(TestObject.create("foo"))).stringify())
         .isEqualTo(
-            "kind:google.registry.testing.TestObject@sql:rO0ABXQABHRlc3Q=@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M");
+            "kind:google.registry.testing.TestObject@sql:rO0ABXQABHRlc3Q@ofy:agR0ZXN0cjELEg9FbnRpd"
+                + "HlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M");
   }
 
   /** Test create() via different vkey string representations. */
   @Test
   void testCreate_stringifedVKey_sqlOnlyVKeyString() throws Exception {
-    assertThat(VKey.create("kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw=="))
+    assertThat(VKey.create("kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw"))
         .isEqualTo(VKey.createSql(TestObject.class, "foo"));
   }
 
@@ -186,7 +198,8 @@ class VKeyTest {
   void testCreate_stringifedVKey_asymmetricVKeyString() throws Exception {
     assertThat(
             VKey.create(
-                "kind:google.registry.testing.TestObject@sql:rO0ABXQABHRlc3Q=@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"))
+                "kind:google.registry.testing.TestObject@sql:rO0ABXQABHRlc3Q@ofy:agR0ZXN0cjELEg9Fb"
+                    + "nRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"))
         .isEqualTo(VKey.create(TestObject.class, "test", Key.create(TestObject.create("foo"))));
   }
 
@@ -194,8 +207,22 @@ class VKeyTest {
   void testCreate_stringifedVKey_sqlAndOfyVKeyString() throws Exception {
     assertThat(
             VKey.create(
-                "kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw==@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"))
+                "kind:google.registry.testing.TestObject@sql:rO0ABXQAA2Zvbw@ofy:agR0ZXN0cjELEg9Fbn"
+                    + "RpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"))
         .isEqualTo(VKey.create(TestObject.class, "foo", Key.create(TestObject.create("foo"))));
+  }
+
+  @Test
+  void testCreate_stringifyVkey_fromWebsafeKey() throws Exception {
+    assertThat(
+            VKey.create(
+                "kind:google.registry.model.domain.DomainBase@sql:rO0ABXQABlJPSUQtMQ"
+                    + "@ofy:agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM"))
+        .isEqualTo(
+            VKey.fromWebsafeKey(
+                Key.create(
+                        newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1")))
+                    .getString()));
   }
 
   @Test
@@ -220,6 +247,19 @@ class VKeyTest {
     IllegalArgumentException thrown =
         assertThrows(IllegalArgumentException.class, () -> VKey.create("invalid"));
     assertThat(thrown).hasMessageThat().contains("Could not parse Reference");
+  }
+
+  @Test
+  void testCreate_containsPadding_failure() throws Exception {
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                VKey.create(
+                    "kind:google.registry.testi"
+                        + "ng.TestObject@sql:rO0ABXQAA2Zvbw==@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3Nz"
+                        + "LXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"));
+    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
   }
 
   /** Test stringify() then create() flow. */

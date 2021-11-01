@@ -60,6 +60,7 @@ dependencies {
   annotationProcessor deps['com.google.dagger:dagger-compiler']
   testAnnotationProcessor deps['com.google.auto.value:auto-value']
   testAnnotationProcessor deps['com.google.dagger:dagger-compiler']
+    compile 'commons-codec:commons-codec:1.15'
 }
 
 test {

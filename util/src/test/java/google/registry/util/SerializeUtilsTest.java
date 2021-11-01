@@ -67,12 +67,12 @@ class SerializeUtilsTest {
 
   @Test
   void testStringify_string_returnsBase64EncodedString() {
-    assertThat(stringify("foo")).isEqualTo("rO0ABXQAA2Zvbw==");
+    assertThat(stringify("foo")).isEqualTo("rO0ABXQAA2Zvbw");
   }
 
   @Test
   void testParse_stringClass_returnsObject() {
-    assertThat(parse(String.class, "rO0ABXQAA2Zvbw==")).isEqualTo("foo");
+    assertThat(parse(String.class, "rO0ABXQAA2Zvbw")).isEqualTo("foo");
   }
 
   @Test
@@ -92,14 +92,28 @@ class SerializeUtilsTest {
   }
 
   @Test
-  void testParse_nullObjectStringValue_throwsException() {
+  void testParse_nullClass_throwsException() {
     NullPointerException thrown =
         assertThrows(NullPointerException.class, () -> parse(null, "test"));
     assertThat(thrown).hasMessageThat().contains("Class type is not specified");
   }
 
   @Test
-  void testStringify_nullClassTypeValue_throwsException() {
+  void testParse_invalidBase64StringWithTwoEqualSigns_throwsException() {
+    IllegalArgumentException thrown =
+        assertThrows(IllegalArgumentException.class, () -> parse(String.class, "rO0ABXQAA2Zvbw=="));
+    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
+  }
+
+  @Test
+  void testParse_invalidBase64String_throwsException() {
+    IllegalArgumentException thrown =
+        assertThrows(IllegalArgumentException.class, () -> parse(String.class, "abcde:atest"));
+    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
+  }
+
+  @Test
+  void testParse_nullObjectStringValue_throwsException() {
     NullPointerException thrown =
         assertThrows(NullPointerException.class, () -> parse(String.class, null));
     assertThat(thrown).hasMessageThat().contains("Object string cannot be null");
