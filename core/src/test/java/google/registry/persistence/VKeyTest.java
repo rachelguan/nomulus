@@ -19,6 +19,11 @@ import static google.registry.testing.DatabaseHelper.newDomainBase;
 import static google.registry.testing.DatabaseHelper.persistActiveContact;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.google.cloud.tasks.v2.Task;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.LinkedListMultimap;
 import com.googlecode.objectify.Key;
 import com.googlecode.objectify.annotation.Entity;
 import google.registry.model.billing.BillingEvent.OneTime;
@@ -26,8 +31,11 @@ import google.registry.model.domain.DomainBase;
 import google.registry.model.registrar.RegistrarContact;
 import google.registry.model.translators.VKeyTranslatorFactory;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.TestObject;
+import google.registry.util.CloudTasksUtils;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -41,9 +49,17 @@ class VKeyTest {
           .withOfyTestEntities(TestObject.class)
           .build();
 
+  private final LinkedListMultimap<String, String> params = LinkedListMultimap.create();
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+
   @BeforeAll
   static void beforeAll() {
     VKeyTranslatorFactory.addTestEntityClass(TestObject.class);
+  }
+
+  @BeforeEach
+  void beforeEach() {
+    params.clear();
   }
 
   @Test
@@ -305,6 +321,99 @@ class VKeyTest {
   void testStringifyThenCreate_symmetricVKey_success() throws Exception {
     VKey<TestObject> vkey = TestObject.create("foo").key();
     assertThat(VKey.create(vkey.stringify())).isEqualTo(vkey);
+  }
+
+  @Test
+  void testStringifyThenCreate_ofyOnlyVKeyIntaskQueue_success() throws Exception {
+    VKey<TestObject> vkey =
+        VKey.createOfy(TestObject.class, Key.create(TestObject.class, "tmpKey"));
+
+    params.put("vkey", vkey.stringify());
+    cloudTasksHelper
+        .getTestCloudTasksUtils()
+        .enqueue("test-queue", CloudTasksUtils.createPostTask("/the/path", "myservice", params));
+
+    ImmutableList<Task> tasks =
+        ImmutableList.copyOf(cloudTasksHelper.getTestTasksFor("test-queue"));
+    assertThat(tasks).hasSize(1);
+    assertThat(
+            VKey.create(
+                ImmutableMap.copyOf(
+                        Splitter.on("&")
+                            .withKeyValueSeparator("=")
+                            .split(tasks.get(0).getAppEngineHttpRequest().getBody().toStringUtf8()))
+                    .get("vkey")))
+        .isEqualTo(vkey);
+  }
+
+  @Test
+  void testStringifyThenCreate_sqlOnlyVKeyIntaskQueue_success() throws Exception {
+    VKey<TestObject> vkey = VKey.createSql(TestObject.class, "sqlKey");
+
+    params.put("vkey", vkey.stringify());
+    cloudTasksHelper
+        .getTestCloudTasksUtils()
+        .enqueue("test-queue", CloudTasksUtils.createPostTask("/the/path", "myservice", params));
+
+    ImmutableList<Task> tasks =
+        ImmutableList.copyOf(cloudTasksHelper.getTestTasksFor("test-queue"));
+    assertThat(tasks).hasSize(1);
+    assertThat(
+            VKey.create(
+                ImmutableMap.copyOf(
+                        Splitter.on("&")
+                            .withKeyValueSeparator("=")
+                            .split(tasks.get(0).getAppEngineHttpRequest().getBody().toStringUtf8()))
+                    .get("vkey")))
+        .isEqualTo(vkey);
+  }
+
+  @Test
+  void testStringifyThenCreate_generalVKeyIntaskQueue_success() throws Exception {
+    VKey<TestObject> vkey =
+        VKey.create(TestObject.class, "12345", Key.create(TestObject.class, "12345"));
+
+    params.put("vkey", vkey.stringify());
+    cloudTasksHelper
+        .getTestCloudTasksUtils()
+        .enqueue("test-queue", CloudTasksUtils.createPostTask("/the/path", "myservice", params));
+
+    ImmutableList<Task> tasks =
+        ImmutableList.copyOf(cloudTasksHelper.getTestTasksFor("test-queue"));
+    assertThat(tasks).hasSize(1);
+    assertThat(
+            VKey.create(
+                ImmutableMap.copyOf(
+                        Splitter.on("&")
+                            .withKeyValueSeparator("=")
+                            .split(tasks.get(0).getAppEngineHttpRequest().getBody().toStringUtf8()))
+                    .get("vkey")))
+        .isEqualTo(vkey);
+  }
+
+  @Test
+  void testStringifyThenCreate_vkeyFromWebsafeStringIntaskQueue_success() throws Exception {
+    VKey<DomainBase> vkey =
+        VKey.fromWebsafeKey(
+            Key.create(newDomainBase("example.com", "ROID-1", persistActiveContact("contact-1")))
+                .getString());
+
+    params.put("vkey", vkey.stringify());
+    cloudTasksHelper
+        .getTestCloudTasksUtils()
+        .enqueue("test-queue", CloudTasksUtils.createPostTask("/the/path", "myservice", params));
+
+    ImmutableList<Task> tasks =
+        ImmutableList.copyOf(cloudTasksHelper.getTestTasksFor("test-queue"));
+    assertThat(tasks).hasSize(1);
+    assertThat(
+            VKey.create(
+                ImmutableMap.copyOf(
+                        Splitter.on("&")
+                            .withKeyValueSeparator("=")
+                            .split(tasks.get(0).getAppEngineHttpRequest().getBody().toStringUtf8()))
+                    .get("vkey")))
+        .isEqualTo(vkey);
   }
 
   @Entity
