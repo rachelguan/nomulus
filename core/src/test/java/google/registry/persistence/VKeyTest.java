@@ -251,19 +251,6 @@ class VKeyTest {
     assertThat(thrown).hasMessageThat().contains("Could not parse Reference");
   }
 
-  @Test
-  void testCreate_containsPadding_failure() throws Exception {
-    IllegalArgumentException thrown =
-        assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                VKey.create(
-                    "kind:google.registry.testing.TestObject"
-                        + "@sql:rO0ABXQAA2Zvbw=="
-                        + "@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWM"));
-    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
-  }
-
   /** Test stringify() then create() flow. */
   @Test
   void testStringifyThenCreate_sqlOnlyVKey_testObject_stringKey_success() throws Exception {

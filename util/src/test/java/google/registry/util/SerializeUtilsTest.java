@@ -99,17 +99,10 @@ class SerializeUtilsTest {
   }
 
   @Test
-  void testParse_invalidBase64StringWithTwoEqualSigns_throwsException() {
-    IllegalArgumentException thrown =
-        assertThrows(IllegalArgumentException.class, () -> parse(String.class, "rO0ABXQAA2Zvbw=="));
-    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
-  }
-
-  @Test
   void testParse_invalidBase64String_throwsException() {
     IllegalArgumentException thrown =
         assertThrows(IllegalArgumentException.class, () -> parse(String.class, "abcde:atest"));
-    assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
+    assertThat(thrown).hasMessageThat().contains("Unable to deserialize");
   }
 
   @Test
