@@ -86,11 +86,10 @@ public final class SerializeUtils {
   public static <T> T parse(Class<T> type, String objectString) {
     checkNotNull(type, "Class type is not specified");
     checkNotNull(objectString, "Object string cannot be null");
-    /*
-     * "=' is allowed as padding in base 64 but this method only handles URL safe encoded string
-     * created by stringify(). Therefore, this method will return an error if the objectString ends
-     * with "=".
-     */
+
+    // "=' is allowed as padding in base 64 but this method only handles URL safe encoded string
+    // created by stringify(). Therefore, this method will return an error if the objectString ends
+    // with "=".
     checkArgument(
         Base64.isBase64(objectString) && !objectString.endsWith("="),
         "Object string is not in base 64");

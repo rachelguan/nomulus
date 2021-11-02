@@ -158,7 +158,9 @@ class VKeyTest {
     VKey<DomainBase> vkey = VKey.fromWebsafeKey(key.getString());
     assertThat(vkey.stringify())
         .isEqualTo(
-            "kind:google.registry.model.domain.DomainBase@sql:rO0ABXQABlJPSUQtMQ@ofy:agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM");
+            "kind:google.registry.model.domain.DomainBas"
+                + "e@sql:rO0ABXQABlJPSUQtMQ"
+                + "@ofy:agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM");
   }
 
   @Test
@@ -256,9 +258,9 @@ class VKeyTest {
             IllegalArgumentException.class,
             () ->
                 VKey.create(
-                    "kind:google.registry.testi"
-                        + "ng.TestObject@sql:rO0ABXQAA2Zvbw==@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3Nz"
-                        + "LXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M"));
+                    "kind:google.registry.testing.TestObject"
+                        + "@sql:rO0ABXQAA2Zvbw=="
+                        + "@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWM"));
     assertThat(thrown).hasMessageThat().contains("Object string is not in base 64");
   }
 
