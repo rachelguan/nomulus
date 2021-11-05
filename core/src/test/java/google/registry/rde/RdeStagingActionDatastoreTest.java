@@ -25,9 +25,6 @@ import static google.registry.rde.RdeFixtures.makeHostResource;
 import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.DatabaseHelper.persistResourceWithCommitLog;
-import static google.registry.testing.TaskQueueHelper.assertAtLeastOneTaskIsEnqueued;
-import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static google.registry.testing.TestDataHelper.loadFile;
 import static google.registry.tldconfig.idn.IdnTableEnum.EXTENDED_LATIN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -50,17 +47,15 @@ import google.registry.model.ofy.Ofy;
 import google.registry.model.tld.Registry;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.RequestParameters;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeKeyringModule;
 import google.registry.testing.FakeLockHandler;
 import google.registry.testing.FakeResponse;
 import google.registry.testing.InjectExtension;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import google.registry.testing.mapreduce.MapreduceTestCase;
 import google.registry.tldconfig.idn.IdnTableEnum;
-import google.registry.util.Retrier;
-import google.registry.util.SystemSleeper;
-import google.registry.util.TaskQueueUtils;
 import google.registry.xjc.XjcXmlTransformer;
 import google.registry.xjc.rde.XjcRdeContentType;
 import google.registry.xjc.rde.XjcRdeDeposit;
@@ -104,6 +99,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
   private final FakeResponse response = new FakeResponse();
   private final GcsUtils gcsUtils = new GcsUtils(LocalStorageHelper.getOptions());
   private final List<? super XjcRdeContentType> alreadyExtracted = new ArrayList<>();
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   private static PGPPublicKey encryptKey;
   private static PGPPrivateKey decryptKey;
@@ -124,7 +120,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.mrRunner = makeDefaultRunner();
     action.lenient = false;
     action.reducerFactory = new RdeStagingReducer.Factory();
-    action.reducerFactory.taskQueueUtils = new TaskQueueUtils(new Retrier(new SystemSleeper(), 1));
+    action.reducerFactory.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
     action.reducerFactory.lockHandler = new FakeLockHandler(true);
     action.reducerFactory.bucket = "rde-bucket";
     action.reducerFactory.lockTimeout = Duration.standardHours(1);
@@ -180,7 +176,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
   void testRun_noTlds_returns204() {
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    assertNoTasksEnqueued("mapreduce");
+    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -190,7 +186,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     clock.setTo(DateTime.parse("2000-01-01TZ"));
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    assertNoTasksEnqueued("mapreduce");
+    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -200,7 +196,8 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.run();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getPayload()).contains("/_ah/pipeline/status.html?root=");
-    assertAtLeastOneTaskIsEnqueued("mapreduce");
+    // TODO(rachelguan): determine where task gets pushed into "mapreduce"
+    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test
@@ -210,7 +207,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.transactionCooldown = Duration.standardMinutes(5);
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    assertNoTasksEnqueued("mapreduce");
+    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -219,7 +216,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     clock.setTo(DateTime.parse("2000-01-01T00:05:00Z"));
     action.transactionCooldown = Duration.standardMinutes(5);
     action.run();
-    assertAtLeastOneTaskIsEnqueued("mapreduce");
+    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test
@@ -307,7 +304,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.run();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getPayload()).contains("_ah/pipeline/status.html?root=");
-    assertAtLeastOneTaskIsEnqueued("mapreduce");
+    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test
@@ -467,11 +464,13 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     clock.setTo(DateTime.parse("2000-01-04TZ")); // Tuesday
     action.run();
     executeTasksUntilEmpty("mapreduce", clock);
-    assertTasksEnqueued("rde-upload",
-        new TaskMatcher()
+    cloudTasksHelper.assertTasksEnqueued(
+        "rde-upload",
+        new CloudTasksHelper.TaskMatcher()
             .url(RdeUploadAction.PATH)
             .param(RequestParameters.PARAM_TLD, "lol"));
-    assertTasksEnqueued("brda",
+    cloudTasksHelper.assertTasksEnqueued(
+        "brda",
         new TaskMatcher()
             .url(BrdaCopyAction.PATH)
             .param(RequestParameters.PARAM_TLD, "lol")
