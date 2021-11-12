@@ -17,22 +17,27 @@ package google.registry.export;
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.export.CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM;
 import static google.registry.export.CheckBackupAction.CHECK_BACKUP_NAME_PARAM;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.mockito.Mockito.when;
 
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.DatastoreAdmin.Export;
 import google.registry.export.datastore.Operation;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
+import google.registry.testing.FakeClock;
 import google.registry.testing.FakeResponse;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 /** Unit tests for {@link BackupDatastoreAction}. */
 @ExtendWith(MockitoExtension.class)
@@ -47,12 +52,14 @@ public class BackupDatastoreActionTest {
 
   private final FakeResponse response = new FakeResponse();
   private final BackupDatastoreAction action = new BackupDatastoreAction();
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   void beforeEach() throws Exception {
     action.datastoreAdmin = datastoreAdmin;
     action.response = response;
-
+    action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
+    action.clock = new FakeClock();
     when(datastoreAdmin.export(
             "gs://registry-project-id-datastore-backups", AnnotatedEntities.getBackupKinds()))
         .thenReturn(exportRequest);
@@ -66,19 +73,36 @@ public class BackupDatastoreActionTest {
   @Test
   void testBackup_enqueuesPollTask() {
     action.run();
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         CheckBackupAction.QUEUE,
         new TaskMatcher()
-            .url(CheckBackupAction.PATH)
+            .url(BackupDatastoreAction.PATH)
             .param(CHECK_BACKUP_NAME_PARAM, "projects/registry-project-id/operations/ASA1ODYwNjc")
             .param(
                 CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
                 Joiner.on(",").join(AnnotatedEntities.getReportingKinds()))
-            .method("POST"));
+            .method(HttpMethod.POST));
     assertThat(response.getPayload())
         .isEqualTo(
             "Datastore backup started with name: "
                 + "projects/registry-project-id/operations/ASA1ODYwNjc\n"
                 + "Saving to gs://registry-project-id-datastore-backups/some-id");
+  }
+
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  @Test
+  void testSuccess_enqueuePollTask() {
+    action.enqueuePollTask(
+        CheckBackupAction.QUEUE,
+        CheckBackupAction.PATH,
+        "some_backup_name",
+        ImmutableSet.of("one", "two", "three"));
+    cloudTasksHelper.assertTasksEnqueued(
+        CheckBackupAction.QUEUE,
+        new TaskMatcher()
+            .url(CheckBackupAction.PATH)
+            .param(CHECK_BACKUP_NAME_PARAM, "some_backup_name")
+            .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, "one,two,three")
+            .method(HttpMethod.POST));
   }
 }

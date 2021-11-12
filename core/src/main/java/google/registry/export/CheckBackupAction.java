@@ -22,11 +22,6 @@ import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskHandle;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -178,16 +173,5 @@ public class CheckBackupAction implements Runnable {
     }
     logger.atInfo().log(message);
     response.setPayload(message);
-  }
-
-  /** Enqueue a poll task to monitor the named backup for completion. */
-  static TaskHandle enqueuePollTask(String backupId, ImmutableSet<String> kindsToLoad) {
-    return QueueFactory.getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .countdownMillis(POLL_COUNTDOWN.getMillis())
-                .param(CHECK_BACKUP_NAME_PARAM, backupId)
-                .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, Joiner.on(',').join(kindsToLoad)));
   }
 }

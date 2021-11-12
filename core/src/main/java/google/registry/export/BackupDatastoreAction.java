@@ -14,17 +14,25 @@
 
 package google.registry.export;
 
-import static google.registry.export.CheckBackupAction.enqueuePollTask;
+
 import static google.registry.request.Action.Method.POST;
 
+import com.google.cloud.tasks.v2.Task;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.Operation;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
+import java.util.Optional;
 import javax.inject.Inject;
 
 /**
@@ -50,13 +58,12 @@ public class BackupDatastoreAction implements Runnable {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-  /** Queue to use for enqueuing the task that will actually launch the backup. */
-  static final String QUEUE = "export-snapshot"; // See queue.xml.
-
   static final String PATH = "/_dr/task/backupDatastore"; // See web.xml.
 
   @Inject DatastoreAdmin datastoreAdmin;
   @Inject Response response;
+  @Inject CloudTasksUtils cloudTasksUtils;
+  @Inject Clock clock;
 
   @Inject
   BackupDatastoreAction() {}
@@ -72,7 +79,8 @@ public class BackupDatastoreAction implements Runnable {
 
       String backupName = backup.getName();
       // Enqueue a poll task to monitor the backup and load REPORTING-related kinds into bigquery.
-      enqueuePollTask(backupName, AnnotatedEntities.getReportingKinds());
+      enqueuePollTask(
+          CheckBackupAction.QUEUE, PATH, backupName, AnnotatedEntities.getReportingKinds());
       String message =
           String.format(
               "Datastore backup started with name: %s\nSaving to %s",
@@ -82,5 +90,22 @@ public class BackupDatastoreAction implements Runnable {
     } catch (Throwable e) {
       throw new InternalServerErrorException("Exception occurred while backing up Datastore", e);
     }
+  }
+  /** Enqueue a poll task to monitor the named backup for completion. */
+  Task enqueuePollTask(
+      String queueName, String path, String backupId, ImmutableSet<String> kindsToLoad) {
+
+    return cloudTasksUtils.enqueue(
+        queueName,
+        CloudTasksUtils.createPostTask(
+            path,
+            Service.BACKEND.toString(),
+            ImmutableMultimap.of(
+                CheckBackupAction.CHECK_BACKUP_NAME_PARAM,
+                backupId,
+                CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
+                Joiner.on(',').join(kindsToLoad)),
+            clock,
+            Optional.of((int) CheckBackupAction.POLL_COUNTDOWN.getStandardSeconds())));
   }
 }

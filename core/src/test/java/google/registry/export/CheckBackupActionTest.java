@@ -15,8 +15,6 @@
 package google.registry.export;
 
 import static com.google.common.truth.Truth.assertThat;
-import static google.registry.export.CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM;
-import static google.registry.export.CheckBackupAction.CHECK_BACKUP_NAME_PARAM;
 import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
 import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -27,7 +25,6 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.common.collect.ImmutableSet;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.DatastoreAdmin.Get;
 import google.registry.export.datastore.Operation;
@@ -119,19 +116,6 @@ public class CheckBackupActionTest {
             .param("id", id)
             .param("folder", folder)
             .param("kinds", kinds));
-  }
-
-  @MockitoSettings(strictness = Strictness.LENIENT)
-  @Test
-  void testSuccess_enqueuePollTask() {
-    CheckBackupAction.enqueuePollTask("some_backup_name", ImmutableSet.of("one", "two", "three"));
-    assertTasksEnqueued(
-        CheckBackupAction.QUEUE,
-        new TaskMatcher()
-            .url(CheckBackupAction.PATH)
-            .param(CHECK_BACKUP_NAME_PARAM, "some_backup_name")
-            .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, "one,two,three")
-            .method("POST"));
   }
 
   @Test
