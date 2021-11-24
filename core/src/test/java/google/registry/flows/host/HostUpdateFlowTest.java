@@ -230,7 +230,7 @@ class HostUpdateFlowTest extends ResourceFlowTestCase<HostUpdateFlow, HostResour
     assertTasksEnqueued(
         QUEUE_ASYNC_HOST_RENAME,
         new TaskMatcher()
-            .param("hostKey", renamedHost.createVKey().getOfyKey().getString())
+            .param("hostKey", renamedHost.createVKey().stringify())
             .param("requestedTime", clock.nowUtc().toString()));
   }
 

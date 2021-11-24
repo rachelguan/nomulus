@@ -146,7 +146,7 @@ public abstract class ResourceFlowTestCase<F extends Flow, R extends EppResource
     TaskMatcher expected =
         new TaskMatcher()
             .etaDelta(Duration.standardSeconds(75), Duration.standardSeconds(105)) // expected: 90
-            .param("resourceKey", resource.createVKey().getOfyKey().getString())
+            .param("resourceKey", resource.createVKey().stringify())
             .param("requestingClientId", requestingClientId)
             .param("serverTransactionId", trid.getServerTransactionId())
             .param("isSuperuser", Boolean.toString(isSuperuser))
