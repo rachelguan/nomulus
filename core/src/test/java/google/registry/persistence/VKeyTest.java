@@ -425,9 +425,16 @@ class VKeyTest {
   }
 
   @Test
-  void testToString_ofyOnlyVKey() {
-    assertThat(VKey.createOfy(TestObject.class, Key.create(TestObject.class, "testId")).toString())
-        .isEqualTo("VKey<TestObject>(ofy:testId)");
+  void testToString_ofyOnlyVKey_withName() {
+    assertThat(
+            VKey.createOfy(TestObject.class, Key.create(TestObject.class, "testName")).toString())
+        .isEqualTo("VKey<TestObject>(ofy:testName)");
+  }
+
+  @Test
+  void testToString_ofyOnlyVKey_withId() {
+    assertThat(VKey.createOfy(TestObject.class, Key.create(TestObject.class, 12345)).toString())
+        .isEqualTo("VKey<TestObject>(ofy:12345)");
   }
 
   @Test
