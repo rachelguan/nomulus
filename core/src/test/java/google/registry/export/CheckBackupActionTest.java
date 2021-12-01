@@ -17,8 +17,10 @@ package google.registry.export;
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.export.CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM;
 import static google.registry.export.CheckBackupAction.CHECK_BACKUP_NAME_PARAM;
-import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
+import static google.registry.export.UploadDatastoreBackupAction.QUEUE;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -27,6 +29,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSet;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.DatastoreAdmin.Get;
@@ -36,10 +39,14 @@ import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.NoContentException;
 import google.registry.request.HttpException.NotModifiedException;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeResponse;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import google.registry.testing.TestDataHelper;
+import google.registry.util.CloudTasksUtils;
+import google.registry.util.CloudTasksUtils.TaskInfo;
+import java.util.Optional;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,12 +78,13 @@ public class CheckBackupActionTest {
   private final FakeResponse response = new FakeResponse();
   private final FakeClock clock = new FakeClock(COMPLETE_TIME.plusMillis(1000));
   private final CheckBackupAction action = new CheckBackupAction();
-
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
   @BeforeEach
   void beforeEach() throws Exception {
     action.requestMethod = Method.POST;
     action.datastoreAdmin = datastoreAdmin;
     action.clock = clock;
+    action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
     action.backupName = "some_backup";
     action.kindsToLoadParam = "one,two";
     action.response = response;
@@ -110,12 +118,12 @@ public class CheckBackupActionTest {
                 null));
   }
 
-  private static void assertLoadTaskEnqueued(String id, String folder, String kinds) {
-    assertTasksEnqueued(
-        "export-snapshot",
+  private void assertLoadTaskEnqueued(String id, String folder, String kinds) {
+    cloudTasksHelper.assertTasksEnqueued(
+        BackupDatastoreAction.QUEUE,
         new TaskMatcher()
             .url("/_dr/task/uploadDatastoreBackup")
-            .method("POST")
+            .method(HttpMethod.POST)
             .param("id", id)
             .param("folder", folder)
             .param("kinds", kinds));
@@ -124,14 +132,15 @@ public class CheckBackupActionTest {
   @MockitoSettings(strictness = Strictness.LENIENT)
   @Test
   void testSuccess_enqueuePollTask() {
-    CheckBackupAction.enqueuePollTask("some_backup_name", ImmutableSet.of("one", "two", "three"));
-    assertTasksEnqueued(
+    TaskInfo taskInfo =action.pollTaskInfo("some_backup_name", ImmutableSet.of("one", "two", "three"), Optional.of(0));
+    action.cloudTasksUtils.enqueue(taskInfo.queueName(), CloudTasksUtils.createPostTask(taskInfo.path(), "backend", taskInfo.param(), clock, taskInfo.jitterSeconds()));
+    cloudTasksHelper.assertTasksEnqueued(
         CheckBackupAction.QUEUE,
         new TaskMatcher()
             .url(CheckBackupAction.PATH)
             .param(CHECK_BACKUP_NAME_PARAM, "some_backup_name")
             .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, "one,two,three")
-            .method("POST"));
+            .method(HttpMethod.POST));
   }
 
   @Test
@@ -189,7 +198,7 @@ public class CheckBackupActionTest {
     action.kindsToLoadParam = "";
 
     action.run();
-    assertNoTasksEnqueued("export-snapshot");
+    cloudTasksHelper.assertNoTasksEnqueued(BackupDatastoreAction.QUEUE);
   }
 
   @MockitoSettings(strictness = Strictness.LENIENT)
@@ -223,4 +232,19 @@ public class CheckBackupActionTest {
     BadRequestException thrown = assertThrows(BadRequestException.class, action::run);
     assertThat(thrown).hasMessageThat().contains("Bad backup name some_backup: No backup found");
   }
+
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  @Test
+  void testSuccess_enqueueLoadTask() {
+    action.enqueueUploadBackupTask(UploadDatastoreBackupAction.QUEUE, UploadDatastoreBackupAction.PATH, "id12345", "gs://bucket/path", ImmutableSet.of("one", "two", "three"));
+    cloudTasksHelper.assertTasksEnqueued(
+        UploadDatastoreBackupAction.QUEUE,
+        new TaskMatcher()
+            .url(UploadDatastoreBackupAction.PATH)
+            .method(HttpMethod.POST)
+            .param(UPLOAD_BACKUP_ID_PARAM, "id12345")
+            .param(UPLOAD_BACKUP_FOLDER_PARAM, "gs://bucket/path")
+            .param(UPLOAD_BACKUP_KINDS_PARAM, "one,two,three"));
+  }
+
 }

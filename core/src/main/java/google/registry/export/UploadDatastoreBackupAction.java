@@ -91,18 +91,6 @@ public class UploadDatastoreBackupAction implements Runnable {
   @Inject
   UploadDatastoreBackupAction() {}
 
-  /** Enqueue a task for starting a backup load. */
-  public static TaskHandle enqueueUploadBackupTask(
-      String backupId, String gcsFile, ImmutableSet<String> kinds) {
-    return getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .param(UPLOAD_BACKUP_ID_PARAM, backupId)
-                .param(UPLOAD_BACKUP_FOLDER_PARAM, gcsFile)
-                .param(UPLOAD_BACKUP_KINDS_PARAM, Joiner.on(',').join(kinds)));
-  }
-
   @Override
   public void run() {
     try {

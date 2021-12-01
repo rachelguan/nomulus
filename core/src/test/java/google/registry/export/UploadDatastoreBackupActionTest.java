@@ -23,7 +23,6 @@ import static google.registry.export.UploadDatastoreBackupAction.QUEUE;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM;
-import static google.registry.export.UploadDatastoreBackupAction.enqueueUploadBackupTask;
 import static google.registry.export.UploadDatastoreBackupAction.getBackupInfoFileForKind;
 import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -85,19 +84,6 @@ public class UploadDatastoreBackupActionTest {
     action.backupFolderUrl = "gs://bucket/path";
     action.backupId = "2018-12-05T17:46:39_92612";
     action.backupKinds = "one,two,three";
-  }
-
-  @Test
-  void testSuccess_enqueueLoadTask() {
-    enqueueUploadBackupTask("id12345", "gs://bucket/path", ImmutableSet.of("one", "two", "three"));
-    assertTasksEnqueued(
-        QUEUE,
-        new TaskMatcher()
-            .url(PATH)
-            .method("POST")
-            .param(UPLOAD_BACKUP_ID_PARAM, "id12345")
-            .param(UPLOAD_BACKUP_FOLDER_PARAM, "gs://bucket/path")
-            .param(UPLOAD_BACKUP_KINDS_PARAM, "one,two,three"));
   }
 
   @Test

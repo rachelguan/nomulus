@@ -16,24 +16,27 @@ package google.registry.export;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.intersection;
-import static google.registry.export.UploadDatastoreBackupAction.enqueueUploadBackupTask;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM;
+import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM;
 import static google.registry.request.Action.Method.GET;
 import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskHandle;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
+import com.google.cloud.tasks.v2.HttpMethod;
+import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.FluentLogger;
+
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.Operation;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.InternalServerErrorException;
@@ -44,7 +47,10 @@ import google.registry.request.RequestMethod;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
+import google.registry.util.CloudTasksUtils.TaskInfo;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 import javax.inject.Inject;
 import org.joda.time.Duration;
@@ -81,6 +87,8 @@ public class CheckBackupAction implements Runnable {
   @Inject DatastoreAdmin datastoreAdmin;
   @Inject Clock clock;
   @Inject Response response;
+  @Inject
+  CloudTasksUtils cloudTasksUtils;
   @Inject @RequestMethod Action.Method requestMethod;
 
   @Inject
@@ -173,7 +181,7 @@ public class CheckBackupAction implements Runnable {
     if (exportedKindsToLoad.isEmpty()) {
       message += "no kinds to load into BigQuery.";
     } else {
-      enqueueUploadBackupTask(backupId, backup.getExportFolderUrl(), exportedKindsToLoad);
+      enqueueUploadBackupTask(UploadDatastoreBackupAction.QUEUE, UploadDatastoreBackupAction.PATH, backupId, backup.getExportFolderUrl(), exportedKindsToLoad);
       message += "BigQuery load task enqueued.";
     }
     logger.atInfo().log(message);
@@ -181,13 +189,20 @@ public class CheckBackupAction implements Runnable {
   }
 
   /** Enqueue a poll task to monitor the named backup for completion. */
-  static TaskHandle enqueuePollTask(String backupId, ImmutableSet<String> kindsToLoad) {
-    return QueueFactory.getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .countdownMillis(POLL_COUNTDOWN.getMillis())
-                .param(CHECK_BACKUP_NAME_PARAM, backupId)
-                .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, Joiner.on(',').join(kindsToLoad)));
+  public TaskInfo pollTaskInfo(String backupId, ImmutableSet<String> kindsToLoad, Optional<Integer> jitterSeconds) {
+    return CloudTasksUtils.TaskInfo.create(QUEUE, HttpMethod.POST, PATH, Service.BACKEND.toString(), ImmutableMultimap.of(CHECK_BACKUP_NAME_PARAM, backupId, CHECK_BACKUP_KINDS_TO_LOAD_PARAM, Joiner.on(',').join(kindsToLoad)), jitterSeconds);
   }
+
+  public TaskInfo uploadBackupTaskInfo(String backupId, String gcsFile, ImmutableSet<String> kinds) {
+    return TaskInfo.create(QUEUE, HttpMethod.POST, PATH, Service.BACKEND.toString(), ImmutableMultimap.of(UPLOAD_BACKUP_ID_PARAM, backupId, UPLOAD_BACKUP_FOLDER_PARAM, gcsFile, UPLOAD_BACKUP_KINDS_PARAM, Joiner.on(',').join(kinds)),Optional.of(0));
+  }
+
+  /** Enqueue a task for starting a backup load. */
+  Task enqueueUploadBackupTask(
+      String queueName, String path, String backupId, String gcsFile, ImmutableSet<String> kinds) {
+    TaskInfo taskInfo = uploadBackupTaskInfo(backupId, gcsFile, kinds);
+    return cloudTasksUtils.enqueue(queueName,
+            CloudTasksUtils.createPostTask(path, Service.BACKEND.toString(), taskInfo.param()));
+  }
+
 }
