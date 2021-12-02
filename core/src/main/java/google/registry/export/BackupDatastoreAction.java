@@ -14,7 +14,6 @@
 
 package google.registry.export;
 
-import static google.registry.export.CheckBackupAction.enqueuePollTask;
 import static google.registry.request.Action.Method.POST;
 
 import com.google.common.flogger.FluentLogger;
@@ -25,6 +24,9 @@ import google.registry.request.Action;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
+import google.registry.util.CloudTasksUtils.GcpCloudTasksClient.TaskInfo;
 import javax.inject.Inject;
 
 /**
@@ -57,6 +59,8 @@ public class BackupDatastoreAction implements Runnable {
 
   @Inject DatastoreAdmin datastoreAdmin;
   @Inject Response response;
+  @Inject CloudTasksUtils cloudTasksUtils;
+  @Inject Clock clock;
 
   @Inject
   BackupDatastoreAction() {}
@@ -72,7 +76,16 @@ public class BackupDatastoreAction implements Runnable {
 
       String backupName = backup.getName();
       // Enqueue a poll task to monitor the backup and load REPORTING-related kinds into bigquery.
-      enqueuePollTask(backupName, AnnotatedEntities.getReportingKinds());
+      TaskInfo pollTaskInfo =
+          CheckBackupAction.getPollTaskInfo(backupName, AnnotatedEntities.getReportingKinds());
+      cloudTasksUtils.enqueue(
+          pollTaskInfo.queueName(),
+          CloudTasksUtils.createPostTask(
+              pollTaskInfo.path(),
+              pollTaskInfo.service(),
+              pollTaskInfo.param(),
+              clock,
+              pollTaskInfo.jitterSeconds()));
       String message =
           String.format(
               "Datastore backup started with name: %s\nSaving to %s",

@@ -25,13 +25,13 @@ import com.google.api.services.bigquery.model.JobConfiguration;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.TableReference;
-import com.google.appengine.api.taskqueue.TaskHandle;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
+import com.google.cloud.tasks.v2.HttpMethod;
+import com.google.cloud.tasks.v2.Task;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.bigquery.BigqueryUtils.SourceFormat;
@@ -40,11 +40,15 @@ import google.registry.bigquery.CheckedBigquery;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Parameter;
 import google.registry.request.auth.Auth;
+import google.registry.util.CloudTasksUtils;
+import google.registry.util.CloudTasksUtils.GcpCloudTasksClient.TaskInfo;
 import java.io.IOException;
+import java.util.Optional;
 import javax.inject.Inject;
 
 /** Action to load a Datastore backup from Google Cloud Storage into BigQuery. */
@@ -88,19 +92,42 @@ public class UploadDatastoreBackupAction implements Runnable {
   @Parameter(UPLOAD_BACKUP_KINDS_PARAM)
   String backupKinds;
 
+  @Inject CloudTasksUtils cloudTasksUtils;
+
   @Inject
   UploadDatastoreBackupAction() {}
 
   /** Enqueue a task for starting a backup load. */
-  public static TaskHandle enqueueUploadBackupTask(
+  public Task enqueueUploadBackupTask(String backupId, String gcsFile, ImmutableSet<String> kinds) {
+    return cloudTasksUtils.enqueue(
+        QUEUE,
+        CloudTasksUtils.createPostTask(
+            PATH,
+            Service.BACKEND.toString(),
+            ImmutableMultimap.of(
+                UPLOAD_BACKUP_ID_PARAM,
+                backupId,
+                UPLOAD_BACKUP_FOLDER_PARAM,
+                gcsFile,
+                UPLOAD_BACKUP_KINDS_PARAM,
+                Joiner.on(',').join(kinds))));
+  }
+
+  public static TaskInfo getUploadBackupTask(
       String backupId, String gcsFile, ImmutableSet<String> kinds) {
-    return getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .param(UPLOAD_BACKUP_ID_PARAM, backupId)
-                .param(UPLOAD_BACKUP_FOLDER_PARAM, gcsFile)
-                .param(UPLOAD_BACKUP_KINDS_PARAM, Joiner.on(',').join(kinds)));
+    return TaskInfo.create(
+        QUEUE,
+        HttpMethod.POST,
+        PATH,
+        Service.BACKEND.toString(),
+        ImmutableMultimap.of(
+            UPLOAD_BACKUP_ID_PARAM,
+            backupId,
+            UPLOAD_BACKUP_FOLDER_PARAM,
+            gcsFile,
+            UPLOAD_BACKUP_KINDS_PARAM,
+            Joiner.on(',').join(kinds)),
+        Optional.empty());
   }
 
   @Override

@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.api.gax.rpc.ApiException;
+import com.google.auto.value.AutoValue;
 import com.google.cloud.tasks.v2.AppEngineHttpRequest;
 import com.google.cloud.tasks.v2.AppEngineRouting;
 import com.google.cloud.tasks.v2.CloudTasksClient;
@@ -27,6 +28,7 @@ import com.google.cloud.tasks.v2.QueueName;
 import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.escape.Escaper;
@@ -231,6 +233,34 @@ public class CloudTasksUtils implements Serializable {
       try (CloudTasksClient client = clientSupplier.get()) {
         return client.createTask(QueueName.of(projectId, locationId, queueName), task);
       }
+    }
+
+    // Structure to store task info that will be shared across multiple files
+    @AutoValue
+    public abstract static class TaskInfo {
+
+      public static TaskInfo create(
+          String queueName,
+          HttpMethod method,
+          String path,
+          String service,
+          ImmutableMultimap<String, String> param,
+          Optional<Integer> jitterSeconds) {
+        return new AutoValue_CloudTasksUtils_GcpCloudTasksClient_TaskInfo(
+            queueName, method, path, service, param, jitterSeconds);
+      }
+
+      public abstract String queueName();
+
+      public abstract HttpMethod method();
+
+      public abstract String path();
+
+      public abstract String service();
+
+      public abstract ImmutableMultimap<String, String> param();
+
+      public abstract Optional<Integer> jitterSeconds();
     }
   }
 }

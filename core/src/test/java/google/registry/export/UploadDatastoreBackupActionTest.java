@@ -23,9 +23,7 @@ import static google.registry.export.UploadDatastoreBackupAction.QUEUE;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM;
 import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM;
-import static google.registry.export.UploadDatastoreBackupAction.enqueueUploadBackupTask;
 import static google.registry.export.UploadDatastoreBackupAction.getBackupInfoFileForKind;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,13 +38,15 @@ import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import google.registry.bigquery.CheckedBigquery;
 import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.testing.AppEngineExtension;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,6 +69,7 @@ public class UploadDatastoreBackupActionTest {
       mock(Bigquery.Datasets.Insert.class);
   private final BigqueryPollJobEnqueuer bigqueryPollEnqueuer = mock(BigqueryPollJobEnqueuer.class);
   private UploadDatastoreBackupAction action;
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   void beforeEach() throws Exception {
@@ -85,16 +86,19 @@ public class UploadDatastoreBackupActionTest {
     action.backupFolderUrl = "gs://bucket/path";
     action.backupId = "2018-12-05T17:46:39_92612";
     action.backupKinds = "one,two,three";
+    action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
   }
 
   @Test
   void testSuccess_enqueueLoadTask() {
-    enqueueUploadBackupTask("id12345", "gs://bucket/path", ImmutableSet.of("one", "two", "three"));
-    assertTasksEnqueued(
+
+    action.enqueueUploadBackupTask(
+        "id12345", "gs://bucket/path", ImmutableSet.of("one", "two", "three"));
+    cloudTasksHelper.assertTasksEnqueued(
         QUEUE,
         new TaskMatcher()
             .url(PATH)
-            .method("POST")
+            .method(HttpMethod.POST)
             .param(UPLOAD_BACKUP_ID_PARAM, "id12345")
             .param(UPLOAD_BACKUP_FOLDER_PARAM, "gs://bucket/path")
             .param(UPLOAD_BACKUP_KINDS_PARAM, "one,two,three"));
