@@ -175,17 +175,6 @@ public class CheckBackupAction implements Runnable {
     if (exportedKindsToLoad.isEmpty()) {
       message += "no kinds to load into BigQuery.";
     } else {
-      TaskInfo uploadBackTaskInfo =
-          UploadDatastoreBackupAction.getUploadBackupTask(
-              backupId, backup.getExportFolderUrl(), exportedKindsToLoad);
-      cloudTasksUtils.enqueue(
-          uploadBackTaskInfo.queueName(),
-          CloudTasksUtils.createPostTask(
-              uploadBackTaskInfo.path(),
-              uploadBackTaskInfo.service(),
-              uploadBackTaskInfo.param(),
-              clock,
-              Optional.empty()));
       TaskInfo uploadBackupTaskInfo =
           UploadDatastoreBackupAction.getUploadBackupTask(
               backupId, backup.getExportFolderUrl(), exportedKindsToLoad);
@@ -193,8 +182,8 @@ public class CheckBackupAction implements Runnable {
           uploadBackupTaskInfo.queueName(),
           CloudTasksUtils.createPostTask(
               uploadBackupTaskInfo.path(),
-              uploadBackTaskInfo.service(),
-              uploadBackTaskInfo.param()));
+              uploadBackupTaskInfo.service(),
+              uploadBackupTaskInfo.param()));
       message += "BigQuery load task enqueued.";
     }
     logger.atInfo().log(message);
