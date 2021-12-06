@@ -56,9 +56,10 @@ public class ClassPathManagerTest {
      * Class names are used in stringified vkeys, which can be present in task queues. Class name is
      * required to create a vkey. Changing these names could break task queue entries that are
      * present during a rollout. If you want to change the names of any of the classses supported in
-     * CLASS_REGISTRY, you'll need to introduce some mechanism to deal with this. The classes below
-     * are all classes supported in CLASS_REGISTRY. This test breaks if someone changes a classname
-     * without preserving the original name.
+     * CLASS_REGISTRY, you'll need to introduce some mechanism to deal with this. One way is to find
+     * the corresponding class name by calling ClassPathManager.getClassName(clazz). The classes
+     * below are all classes supported in CLASS_REGISTRY. This test breaks if someone changes a
+     * classname without preserving the original name.
      */
     assertThat(ClassPathManager.getClass("ForeignKeyContactIndex"))
         .isEqualTo(ForeignKeyContactIndex.class);
@@ -121,9 +122,10 @@ public class ClassPathManagerTest {
      * Class names are used in stringified vkeys, which can be present in task queues. Class name is
      * required to create a vkey. Changing these names could break task queue entries that are
      * present during a rollout. If you want to change the names of any of the classses supported in
-     * CLASS_NAME_REGISTRY, you'll need to introduce some mechanism to deal with this. The classes
-     * below are all classes supported in CLASS_NAME_REGISTRY. This test breaks if someone changes a
-     * classname without preserving the original name.
+     * CLASS_NAME_REGISTRY, you'll need to introduce some mechanism to deal with this.
+     * ClassPathManager.getClassName(clazz) allows you to verify the corresponding name of a class.
+     * The classes below are all classes supported in CLASS_NAME_REGISTRY. This test breaks if
+     * someone changes a classname without preserving the original name.
      */
     assertThat(ClassPathManager.getClassName(ForeignKeyContactIndex.class))
         .isEqualTo("ForeignKeyContactIndex");
@@ -169,7 +171,6 @@ public class ClassPathManagerTest {
 
   @Test
   void addTestEntityClass_success() {
-    assertThrows(IllegalArgumentException.class, () -> ClassPathManager.getClass("TestObject"));
     ClassPathManager.addTestEntityClass(TestObject.class);
     assertThat(ClassPathManager.getClass("TestObject")).isEqualTo(TestObject.class);
   }
