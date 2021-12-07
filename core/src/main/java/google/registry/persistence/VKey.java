@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.googlecode.objectify.Key;
 import google.registry.model.BackupGroupRoot;
 import google.registry.model.ImmutableObject;
+import google.registry.model.common.ClassPathManager;
 import google.registry.model.translators.VKeyTranslatorFactory;
 import google.registry.util.SerializeUtils;
 import java.io.Serializable;
@@ -127,9 +128,9 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   }
 
   /**
-   * Constructs a {@link VKey} from the encoded string representation of a vkey.
+   * Constructs a {@link VKey} from the string representation of a vkey.
    *
-   * <p>There are two types of encoded string representations: 1) existing ofy key string handled by
+   * <p>There are two types of string representations: 1) existing ofy key string handled by
    * fromWebsafeKey() and 2) string encoded via stringify() where @ separates the substrings and
    * each of the substrings contains a look up key, ":", and its corresponding value. The key info
    * is encoded via Base64. The string begins with "kind:" and it must contains at least ofy key or
@@ -137,11 +138,9 @@ public class VKey<T> extends ImmutableObject implements Serializable {
    *
    * <p>Example of a Vkey string by fromWebsafeKey(): "agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM"
    *
-   * <p>An example of a vkey string by stringify():
-   * "kind:rO0ABXQAImdvb2dsZS5yZWdpc3RyeS50ZXN0aW5nLlRlc3RPYmplY3Q" + "@sql:rO0ABXQAA2Zvbw" +
-   * "@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M",
-   *
-   * <p>where values of class type, sql key and ofy key are encoded in Base64.
+   * <p>Example of a vkey string by stringify(): "kind:TestObject@sql:rO0ABXQAA2Zvbw" +
+   * "@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M", where sql
+   * key and ofy key values are encoded in Base64.
    */
   public static <T> VKey<T> create(String keyString) throws Exception {
     if (!keyString.startsWith(CLASS_TYPE + KV_SEPARATOR)) {
@@ -151,7 +150,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
       ImmutableMap<String, String> kvs =
           ImmutableMap.copyOf(
               Splitter.on(DELIMITER).withKeyValueSeparator(KV_SEPARATOR).split(keyString));
-      Class classType = Class.forName(SerializeUtils.parse(String.class, kvs.get(CLASS_TYPE)));
+      Class classType = ClassPathManager.getClass(kvs.get(CLASS_TYPE));
 
       if (kvs.containsKey(SQL_LOOKUP_KEY) && kvs.containsKey(OFY_LOOKUP_KEY)) {
         return VKey.create(
@@ -290,20 +289,21 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   }
 
   /**
-   * Constructs the encoded string representation of a {@link VKey}.
+   * Constructs the string representation of a {@link VKey}.
    *
-   * <p>The encoded string representation of a vkey contains its class and sql key, or ofy key, or
-   * both. Each of the encoded values is first serialized into a byte array then encoded via Base64
-   * into a web safe string.
+   * <p>The string representation of a vkey contains its kind, and sql key or ofy key, or both. Each
+   * of the keys is first serialized into a byte array then encoded via Base64 into a web safe
+   * string.
    *
    * <p>The string representation of a vkey contains key values pairs separated by delimiter "@".
    * Another delimiter ":" is put in between each key and value. The following is the complete
-   * format of the string: "kind:encoded_class_name@sql:encoded_sqlKey@ofy:encoded_ofyKey", where
-   * kind and its value are required.
+   * format of the string: "kind:class_name@sql:encoded_sqlKey@ofy:encoded_ofyKey", where kind is
+   * required. The string representation may contain an encoded ofy key, or an encoded sql key, or
+   * both.
    */
   public String stringify() {
     // class type is required to create a vkey
-    String key = CLASS_TYPE + KV_SEPARATOR + SerializeUtils.stringify(getKind().getName());
+    String key = CLASS_TYPE + KV_SEPARATOR + ClassPathManager.getClassName(getKind());
     if (maybeGetSqlKey().isPresent()) {
       key += DELIMITER + SQL_LOOKUP_KEY + KV_SEPARATOR + SerializeUtils.stringify(getSqlKey());
     }
@@ -316,7 +316,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   /**
    * Constructs the readable string representation of a {@link VKey}.
    *
-   * <p>This readable string representation of a vkey contains its type and its sql key or ofy key,
+   * <p>This readable string representation of a vkey contains its kind and its sql key or ofy key,
    * or both.
    */
   @Override
