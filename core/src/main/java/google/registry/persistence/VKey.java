@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.googlecode.objectify.Key;
 import google.registry.model.BackupGroupRoot;
 import google.registry.model.ImmutableObject;
+import google.registry.model.common.ClassPathManager;
 import google.registry.model.translators.VKeyTranslatorFactory;
 import google.registry.util.SerializeUtils;
 import java.io.Serializable;
@@ -149,7 +150,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
       ImmutableMap<String, String> kvs =
           ImmutableMap.copyOf(
               Splitter.on(DELIMITER).withKeyValueSeparator(KV_SEPARATOR).split(keyString));
-      Class classType = Class.forName(kvs.get(CLASS_TYPE));
+      Class classType = ClassPathManager.getClass(kvs.get(CLASS_TYPE));
 
       if (kvs.containsKey(SQL_LOOKUP_KEY) && kvs.containsKey(OFY_LOOKUP_KEY)) {
         return VKey.create(
@@ -302,7 +303,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
    */
   public String stringify() {
     // class type is required to create a vkey
-    String key = CLASS_TYPE + KV_SEPARATOR + getKind().getName();
+    String key = CLASS_TYPE + KV_SEPARATOR + ClassPathManager.getClassName(getKind());
     if (maybeGetSqlKey().isPresent()) {
       key += DELIMITER + SQL_LOOKUP_KEY + KV_SEPARATOR + SerializeUtils.stringify(getSqlKey());
     }
