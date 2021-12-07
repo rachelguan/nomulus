@@ -209,9 +209,7 @@ class VKeyTest {
 
   @Test
   void testCreate_stringifedVKey_ofyOnlyVKeyString() throws Exception {
-    assertThat(
-            VKey.create(
-                "kind:TestObject@ofy:agR0ZXN0chMLEgpUZXN0T2JqZWN0IgNmb28M"))
+    assertThat(VKey.create("kind:TestObject@ofy:agR0ZXN0chMLEgpUZXN0T2JqZWN0IgNmb28M"))
         .isEqualTo(VKey.createOfy(TestObject.class, Key.create(TestObject.class, "foo")));
   }
 
@@ -256,8 +254,7 @@ class VKeyTest {
   void testCreate_invalidStringifiedVKey_failure() throws Exception {
     IllegalArgumentException thrown =
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VKey.create("kind:TestObject@sq:l@ofya:bc"));
+            IllegalArgumentException.class, () -> VKey.create("kind:TestObject@sq:l@ofya:bc"));
     assertThat(thrown)
         .hasMessageThat()
         .contains("Cannot parse key string: kind:TestObject@sq:l@ofya:bc");
