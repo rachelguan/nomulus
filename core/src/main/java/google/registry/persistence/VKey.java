@@ -138,9 +138,9 @@ public class VKey<T> extends ImmutableObject implements Serializable {
    *
    * <p>Example of a Vkey string by fromWebsafeKey(): "agR0ZXN0chYLEgpEb21haW5CYXNlIgZST0lELTEM"
    *
-   * <p>Example of a vkey string by stringify(): "google.registry.testing.TestObject@sql:rO0ABX" +
-   * "QAA2Zvbw@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M",
-   * where sql key and ofy key are values are encoded in Base64.
+   * <p>Example of a vkey string by stringify(): "kind:TestObject@sql:rO0ABXQAA2Zvbw" +
+   * "@ofy:agR0ZXN0cjELEg9FbnRpdHlHcm91cFJvb3QiCWNyb3NzLXRsZAwLEgpUZXN0T2JqZWN0IgNmb28M", where sql
+   * key and ofy key values are encoded in Base64.
    */
   public static <T> VKey<T> create(String keyString) throws Exception {
     if (!keyString.startsWith(CLASS_TYPE + KV_SEPARATOR)) {
@@ -291,7 +291,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   /**
    * Constructs the string representation of a {@link VKey}.
    *
-   * <p>The string representation of a vkey contains its type, and sql key or ofy key, or both. Each
+   * <p>The string representation of a vkey contains its kind, and sql key or ofy key, or both. Each
    * of the keys is first serialized into a byte array then encoded via Base64 into a web safe
    * string.
    *
@@ -316,7 +316,7 @@ public class VKey<T> extends ImmutableObject implements Serializable {
   /**
    * Constructs the readable string representation of a {@link VKey}.
    *
-   * <p>This readable string representation of a vkey contains its type and its sql key or ofy key,
+   * <p>This readable string representation of a vkey contains its kind and its sql key or ofy key,
    * or both.
    */
   @Override
