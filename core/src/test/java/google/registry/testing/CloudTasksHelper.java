@@ -230,7 +230,7 @@ public class CloudTasksHelper implements Serializable {
       String query = null;
       if (method == HttpMethod.GET) {
         query = uri.getQuery();
-      } else if (method == HttpMethod.POST) {
+      } else if (method == HttpMethod.POST && !task.getAppEngineHttpRequest().getBody().isEmpty()) {
         assertThat(
                 headers.containsEntry(
                     Ascii.toLowerCase(HttpHeaders.CONTENT_TYPE), MediaType.FORM_DATA.toString()))
