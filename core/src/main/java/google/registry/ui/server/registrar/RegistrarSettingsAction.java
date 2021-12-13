@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static google.registry.config.RegistryEnvironment.PRODUCTION;
-import static google.registry.export.sheet.SyncRegistrarsSheetAction.enqueueRegistrarSheetSync;
 import static google.registry.persistence.transaction.TransactionManagerFactory.jpaTm;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 import static google.registry.security.JsonResponseHelper.Status.ERROR;
@@ -32,18 +31,21 @@ import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryEnvironment;
+import google.registry.export.sheet.SyncRegistrarsSheetAction;
 import google.registry.flows.certs.CertificateChecker;
 import google.registry.flows.certs.CertificateChecker.InsecureCertificateException;
 import google.registry.model.registrar.Registrar;
 import google.registry.model.registrar.RegistrarContact;
 import google.registry.model.registrar.RegistrarContact.Type;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.ForbiddenException;
 import google.registry.request.JsonActionRunner;
@@ -58,6 +60,7 @@ import google.registry.ui.forms.FormFieldException;
 import google.registry.ui.server.RegistrarFormFields;
 import google.registry.ui.server.SendEmailUtils;
 import google.registry.util.AppEngineServiceUtils;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.CollectionUtils;
 import google.registry.util.DiffUtils;
 import java.util.HashSet;
@@ -95,6 +98,7 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
   @Inject AuthenticatedRegistrarAccessor registrarAccessor;
   @Inject AuthResult authResult;
   @Inject CertificateChecker certificateChecker;
+  @Inject CloudTasksUtils cloudTasksUtils;
 
   @Inject RegistrarSettingsAction() {}
 
@@ -594,7 +598,14 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
     if (CollectionUtils.difference(changedKeys, "lastUpdateTime").isEmpty()) {
       return;
     }
-    enqueueRegistrarSheetSync(appEngineServiceUtils.getCurrentVersionHostname("backend"));
+    // Enqueues a sync registrar sheet task targeting the App Engine service specified by hostname.
+    cloudTasksUtils.enqueue(
+        SyncRegistrarsSheetAction.QUEUE,
+        CloudTasksUtils.createGetTask(
+            SyncRegistrarsSheetAction.PATH,
+            Service.BACKEND.toString(),
+            ImmutableMultimap.of(
+                "Host", appEngineServiceUtils.getCurrentVersionHostname("backend"))));
     String environment = Ascii.toLowerCase(String.valueOf(RegistryEnvironment.get()));
     sendEmailUtils.sendEmail(
         String.format(
