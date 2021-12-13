@@ -28,7 +28,6 @@ import dagger.Module;
 import dagger.Provides;
 import google.registry.request.Parameter;
 import java.util.Optional;
-import javax.inject.Named;
 import javax.servlet.http.HttpServletRequest;
 import org.joda.time.DateTime;
 

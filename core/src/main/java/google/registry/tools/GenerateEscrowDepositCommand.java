@@ -28,9 +28,7 @@ import static google.registry.request.RequestParameters.PARAM_TLDS;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
 import google.registry.model.rde.RdeMode;
 import google.registry.rde.RdeStagingAction;
 import google.registry.request.Action.Service;
@@ -120,27 +118,27 @@ final class GenerateEscrowDepositCommand implements CommandWithRemoteApi {
 
     // Unlike many tool commands, this command is actually invoking an action on the backend module
     // (because it's a mapreduce). So we invoke it in a different way.
-
     String hostname = appEngineServiceUtils.getCurrentVersionHostname("backend");
-    Multimap<String, String> params = ArrayListMultimap.create();
-    params.put("Host", hostname);
-    params.put(PARAM_MANUAL, String.valueOf(true));
-    params.put(PARAM_MODE, mode.toString());
-    params.put(PARAM_DIRECTORY, outdir);
-    params.put(PARAM_LENIENT, Boolean.toString(lenient));
-    params.put(PARAM_BEAM, Boolean.toString(beam));
-    params.put(PARAM_TLDS, tlds.stream().collect(Collectors.joining(",")));
-    params.put(
-        PARAM_WATERMARKS,
-        watermarks.stream().map(DateTime::toString).collect(Collectors.joining(",")));
+    ImmutableMultimap.Builder<String, String> paramsBuilder =
+        new ImmutableMultimap.Builder<String, String>()
+            .put("Host", hostname)
+            .put(PARAM_MANUAL, String.valueOf(true))
+            .put(PARAM_MODE, mode.toString())
+            .put(PARAM_DIRECTORY, outdir)
+            .put(PARAM_LENIENT, Boolean.toString(lenient))
+            .put(PARAM_BEAM, Boolean.toString(beam))
+            .put(PARAM_TLDS, tlds.stream().collect(Collectors.joining(",")))
+            .put(
+                PARAM_WATERMARKS,
+                watermarks.stream().map(DateTime::toString).collect(Collectors.joining(",")));
 
     if (revision != null) {
-      params.put(PARAM_REVISION, String.valueOf(revision));
+      paramsBuilder.put(PARAM_REVISION, String.valueOf(revision));
     }
     cloudTasksUtils.enqueue(
         RDE_REPORT_QUEUE,
         CloudTasksUtils.createPostTask(
-            RdeStagingAction.PATH, Service.BACKEND.toString(), ImmutableMultimap.copyOf(params)));
+            RdeStagingAction.PATH, Service.BACKEND.toString(), paramsBuilder.build()));
   }
 
 }
