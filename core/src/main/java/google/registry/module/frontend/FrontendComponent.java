@@ -17,6 +17,7 @@ package google.registry.module.frontend;
 import com.google.monitoring.metrics.MetricReporter;
 import dagger.Component;
 import dagger.Lazy;
+import google.registry.config.CloudTasksUtilsModule;
 import google.registry.config.CredentialModule;
 import google.registry.config.RegistryConfig.ConfigModule;
 import google.registry.flows.ServerTridProviderModule;
@@ -37,6 +38,7 @@ import google.registry.request.Modules.UrlFetchTransportModule;
 import google.registry.request.Modules.UserServiceModule;
 import google.registry.request.auth.AuthModule;
 import google.registry.ui.ConsoleDebug.ConsoleConfigModule;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.UtilsModule;
 import javax.inject.Singleton;
 
@@ -49,6 +51,7 @@ import javax.inject.Singleton;
       ConsoleConfigModule.class,
       CredentialModule.class,
       CustomLogicFactoryModule.class,
+      CloudTasksUtilsModule.class,
       DirectoryModule.class,
       DummyKeyringModule.class,
       FrontendRequestComponentModule.class,
