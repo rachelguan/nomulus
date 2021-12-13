@@ -14,7 +14,6 @@
 
 package google.registry.rde;
 
-import static com.google.appengine.api.taskqueue.QueueFactory.getQueue;
 import static google.registry.request.RequestParameters.extractBooleanParameter;
 import static google.registry.request.RequestParameters.extractOptionalIntParameter;
 import static google.registry.request.RequestParameters.extractOptionalParameter;
@@ -22,7 +21,6 @@ import static google.registry.request.RequestParameters.extractRequiredDatetimeP
 import static google.registry.request.RequestParameters.extractSetOfDatetimeParameters;
 import static google.registry.request.RequestParameters.extractSetOfParameters;
 
-import com.google.appengine.api.taskqueue.Queue;
 import com.google.common.collect.ImmutableSet;
 import com.jcraft.jsch.SftpProgressMonitor;
 import dagger.Binds;
@@ -108,12 +106,6 @@ public abstract class RdeModule {
   @Parameter(PARAM_PREFIX)
   static Optional<String> providePrefix(HttpServletRequest req) {
     return extractOptionalParameter(req, PARAM_PREFIX);
-  }
-
-  @Provides
-  @Named("rde-report")
-  static Queue provideQueueRdeReport() {
-    return getQueue("rde-report");
   }
 
   @Binds

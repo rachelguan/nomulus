@@ -14,18 +14,16 @@
 
 package google.registry.tools;
 
-import static com.google.appengine.api.taskqueue.QueueFactory.getQueue;
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.testing.DatabaseHelper.createTld;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.beust.jcommander.ParameterException;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.InjectExtension;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import google.registry.util.AppEngineServiceUtils;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -42,14 +40,15 @@ public class GenerateEscrowDepositCommandTest
 
   @Mock AppEngineServiceUtils appEngineServiceUtils;
 
+  CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+
   @BeforeEach
   void beforeEach() {
     createTld("tld");
     createTld("anothertld");
     command = new GenerateEscrowDepositCommand();
     command.appEngineServiceUtils = appEngineServiceUtils;
-    command.queue = getQueue("rde-report");
-    command.maybeEtaMillis = Optional.of(fakeClock.nowUtc().getMillis());
+    command.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
     when(appEngineServiceUtils.getCurrentVersionHostname("backend"))
         .thenReturn("backend.test.localhost");
   }
@@ -197,7 +196,7 @@ public class GenerateEscrowDepositCommandTest
         "-r 42",
         "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
@@ -221,7 +220,7 @@ public class GenerateEscrowDepositCommandTest
         "-r 42",
         "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
@@ -239,7 +238,7 @@ public class GenerateEscrowDepositCommandTest
   void testCommand_successWithDefaultValidationMode() throws Exception {
     runCommand("--tld=tld", "--watermark=2017-01-01T00:00:00Z", "--mode=thin", "-r 42", "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
@@ -257,7 +256,7 @@ public class GenerateEscrowDepositCommandTest
   void testCommand_successWithDefaultRevision() throws Exception {
     runCommand("--tld=tld", "--watermark=2017-01-01T00:00:00Z", "--mode=thin", "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
@@ -275,7 +274,7 @@ public class GenerateEscrowDepositCommandTest
   void testCommand_successWithDefaultMode() throws Exception {
     runCommand("--tld=tld", "--watermark=2017-01-01T00:00:00Z", "-r=42", "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
@@ -299,7 +298,7 @@ public class GenerateEscrowDepositCommandTest
         "-r 42",
         "-o test");
 
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
