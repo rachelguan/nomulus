@@ -21,11 +21,9 @@ import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
@@ -33,9 +31,12 @@ import google.registry.bigquery.BigqueryJobFailureException;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.reporting.icann.IcannReportingModule.ReportType;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.Parameter;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.EmailMessage;
 import google.registry.util.Retrier;
 import google.registry.util.SendEmailService;
@@ -86,6 +87,8 @@ public final class IcannReportingStagingAction implements Runnable {
   @Inject @Config("gSuiteOutgoingEmailAddress") InternetAddress sender;
   @Inject @Config("alertRecipientEmailAddress") InternetAddress recipient;
   @Inject SendEmailService emailService;
+  @Inject Clock clock;
+  @Inject CloudTasksUtils cloudTasksUtils;
 
   @Inject IcannReportingStagingAction() {}
 
@@ -119,11 +122,14 @@ public final class IcannReportingStagingAction implements Runnable {
             response.setPayload("Completed staging action.");
 
             logger.atInfo().log("Enqueueing report upload.");
-            TaskOptions uploadTask =
-                TaskOptions.Builder.withUrl(IcannReportingUploadAction.PATH)
-                    .method(Method.POST)
-                    .countdownMillis(Duration.standardMinutes(2).getMillis());
-            QueueFactory.getQueue(CRON_QUEUE).add(uploadTask);
+            cloudTasksUtils.enqueue(
+                CRON_QUEUE,
+                CloudTasksUtils.createPostTask(
+                    IcannReportingUploadAction.PATH,
+                    Service.BACKEND.toString(),
+                    ImmutableMultimap.of(),
+                    clock,
+                    Optional.of((int) Duration.standardMinutes(2).getMillis())));
             return null;
           },
           BigqueryJobFailureException.class);
