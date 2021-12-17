@@ -200,7 +200,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("mode", "THIN")
             .param("lenient", "true")
             .param("watermarks", "2017-01-01T00:00:00.000Z")
@@ -224,7 +223,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("mode", "THIN")
             .param("beam", "true")
             .param("watermarks", "2017-01-01T00:00:00.000Z")
@@ -242,7 +240,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("mode", "THIN")
             .param("lenient", "false")
             .param("watermarks", "2017-01-01T00:00:00.000Z")
@@ -260,7 +257,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("lenient", "false")
             .param("beam", "false")
             .param("mode", "THIN")
@@ -278,7 +274,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("mode", "FULL")
             .param("lenient", "false")
             .param("beam", "false")
@@ -302,7 +297,6 @@ public class GenerateEscrowDepositCommandTest
         "rde-report",
         new TaskMatcher()
             .url("/_dr/task/rdeStaging")
-            .param("Host", "backend.test.localhost")
             .param("mode", "THIN")
             .param("lenient", "false")
             .param("beam", "false")

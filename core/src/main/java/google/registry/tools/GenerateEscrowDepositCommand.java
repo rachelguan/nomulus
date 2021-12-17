@@ -116,12 +116,8 @@ final class GenerateEscrowDepositCommand implements CommandWithRemoteApi {
       throw new ParameterException("Output subdirectory must not be empty");
     }
 
-    // Unlike many tool commands, this command is actually invoking an action on the backend module
-    // (because it's a mapreduce). So we invoke it in a different way.
-    String hostname = appEngineServiceUtils.getCurrentVersionHostname("backend");
     ImmutableMultimap.Builder<String, String> paramsBuilder =
         new ImmutableMultimap.Builder<String, String>()
-            .put("Host", hostname)
             .put(PARAM_MANUAL, String.valueOf(true))
             .put(PARAM_MODE, mode.toString())
             .put(PARAM_DIRECTORY, outdir)
