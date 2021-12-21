@@ -237,7 +237,7 @@ public class RefreshDnsOnHostRenameActionTest
         QUEUE_ASYNC_HOST_RENAME,
         new TaskMatcher()
             .etaDelta(standardHours(23), standardHours(25))
-            .param("hostKey", host.createVKey().stringify()));
+            .param(PARAM_HOST_KEY, host.createVKey().stringify()));
     assertThat(acquireLock()).isPresent();
   }
 
