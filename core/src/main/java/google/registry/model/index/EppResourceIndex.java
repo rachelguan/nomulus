@@ -65,7 +65,8 @@ public class EppResourceIndex extends BackupGroupRoot implements DatastoreOnlyEn
     EppResourceIndex instance = instantiate(EppResourceIndex.class);
     instance.reference = resourceKey;
     instance.kind = resourceKey.getKind();
-    // creates a web-safe key string, this value has never been used
+    // creates a web-safe key string, this value is never used
+    // TODO(b/211785379): remove unused id
     instance.id = VKey.from(resourceKey).stringify();
     instance.bucket = bucket;
     return instance;
