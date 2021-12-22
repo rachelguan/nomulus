@@ -208,6 +208,7 @@ class VKeyTest {
         .isEqualTo(VKey.createSql(TestObject.class, "foo"));
   }
 
+  @Test
   void testCreate_stringifiedVKey_resourceKeyFromTaskQueue() throws Exception {
     VKey<HostResource> vkeyFromNewWebsafeKey =
         VKey.create(
