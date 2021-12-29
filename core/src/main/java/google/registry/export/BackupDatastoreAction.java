@@ -14,9 +14,10 @@
 
 package google.registry.export;
 
-import static google.registry.export.CheckBackupAction.enqueuePollTask;
 import static google.registry.request.Action.Method.POST;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig;
 import google.registry.export.datastore.DatastoreAdmin;
@@ -26,6 +27,9 @@ import google.registry.request.Action;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
+import java.util.Optional;
 import javax.inject.Inject;
 
 /**
@@ -59,6 +63,8 @@ public class BackupDatastoreAction implements Runnable {
 
   @Inject DatastoreAdmin datastoreAdmin;
   @Inject Response response;
+  @Inject Clock clock;
+  @Inject CloudTasksUtils cloudTasksUtils;
 
   @Inject
   BackupDatastoreAction() {}
@@ -73,8 +79,22 @@ public class BackupDatastoreAction implements Runnable {
               .execute();
 
       String backupName = backup.getName();
-      // Enqueue a poll task to monitor the backup and load REPORTING-related kinds into bigquery.
-      enqueuePollTask(backupName, AnnotatedEntities.getReportingKinds());
+
+      // Enqueue a poll task to monitor the backup for completion and load REPORTING-related kinds
+      // into bigquery.
+      cloudTasksUtils.enqueue(
+          CheckBackupAction.QUEUE,
+          CloudTasksUtils.createPostTask(
+              CheckBackupAction.PATH,
+              CheckBackupAction.SERVICE,
+              ImmutableMultimap.of(
+                  CheckBackupAction.CHECK_BACKUP_NAME_PARAM,
+                  backupName,
+                  CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
+                  Joiner.on(',').join(AnnotatedEntities.getReportingKinds())),
+              clock,
+              Optional.of((int) CheckBackupAction.POLL_COUNTDOWN.getMillis())));
+
       String message =
           String.format(
               "Datastore backup started with name: %s\nSaving to %s",

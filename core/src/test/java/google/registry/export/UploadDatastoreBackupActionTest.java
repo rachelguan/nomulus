@@ -18,14 +18,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.export.UploadDatastoreBackupAction.BACKUP_DATASET;
 import static google.registry.export.UploadDatastoreBackupAction.LATEST_BACKUP_VIEW_NAME;
-import static google.registry.export.UploadDatastoreBackupAction.PATH;
-import static google.registry.export.UploadDatastoreBackupAction.QUEUE;
-import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM;
-import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM;
-import static google.registry.export.UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM;
-import static google.registry.export.UploadDatastoreBackupAction.enqueueUploadBackupTask;
 import static google.registry.export.UploadDatastoreBackupAction.getBackupInfoFileForKind;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -40,13 +33,11 @@ import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import google.registry.bigquery.CheckedBigquery;
 import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.testing.AppEngineExtension;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,18 +78,6 @@ public class UploadDatastoreBackupActionTest {
     action.backupKinds = "one,two,three";
   }
 
-  @Test
-  void testSuccess_enqueueLoadTask() {
-    enqueueUploadBackupTask("id12345", "gs://bucket/path", ImmutableSet.of("one", "two", "three"));
-    assertTasksEnqueued(
-        QUEUE,
-        new TaskMatcher()
-            .url(PATH)
-            .method("POST")
-            .param(UPLOAD_BACKUP_ID_PARAM, "id12345")
-            .param(UPLOAD_BACKUP_FOLDER_PARAM, "gs://bucket/path")
-            .param(UPLOAD_BACKUP_KINDS_PARAM, "one,two,three"));
-  }
 
   @Test
   void testSuccess_doPost() throws Exception {

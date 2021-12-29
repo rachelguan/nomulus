@@ -25,14 +25,10 @@ import com.google.api.services.bigquery.model.JobConfiguration;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.TableReference;
-import com.google.appengine.api.taskqueue.TaskHandle;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.bigquery.BigqueryUtils.SourceFormat;
 import google.registry.bigquery.BigqueryUtils.WriteDisposition;
@@ -41,6 +37,7 @@ import google.registry.config.RegistryConfig.Config;
 import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.model.annotations.DeleteAfterMigration;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Parameter;
@@ -72,6 +69,8 @@ public class UploadDatastoreBackupAction implements Runnable {
 
   static final String PATH = "/_dr/task/uploadDatastoreBackup"; // See web.xml.
 
+  static final String SERVICE = Service.BACKEND.toString();
+
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Inject CheckedBigquery checkedBigquery;
@@ -92,18 +91,6 @@ public class UploadDatastoreBackupAction implements Runnable {
 
   @Inject
   UploadDatastoreBackupAction() {}
-
-  /** Enqueue a task for starting a backup load. */
-  public static TaskHandle enqueueUploadBackupTask(
-      String backupId, String gcsFile, ImmutableSet<String> kinds) {
-    return getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .param(UPLOAD_BACKUP_ID_PARAM, backupId)
-                .param(UPLOAD_BACKUP_FOLDER_PARAM, gcsFile)
-                .param(UPLOAD_BACKUP_KINDS_PARAM, Joiner.on(',').join(kinds)));
-  }
 
   @Override
   public void run() {

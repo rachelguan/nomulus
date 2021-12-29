@@ -16,18 +16,14 @@ package google.registry.export;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.intersection;
-import static google.registry.export.UploadDatastoreBackupAction.enqueueUploadBackupTask;
 import static google.registry.request.Action.Method.GET;
 import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskHandle;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.appengine.api.taskqueue.TaskOptions.Method;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.FluentLogger;
@@ -35,6 +31,7 @@ import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.Operation;
 import google.registry.model.annotations.DeleteAfterMigration;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.InternalServerErrorException;
@@ -45,6 +42,7 @@ import google.registry.request.RequestMethod;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
 import java.util.Set;
 import javax.inject.Inject;
@@ -61,6 +59,7 @@ import org.joda.time.format.PeriodFormat;
     method = {POST, GET},
     automaticallyPrintOk = true,
     auth = Auth.AUTH_INTERNAL_OR_ADMIN)
+
 @DeleteAfterMigration
 public class CheckBackupAction implements Runnable {
 
@@ -72,6 +71,7 @@ public class CheckBackupAction implements Runnable {
   /** Action-specific details needed for enqueuing tasks against itself. */
   static final String QUEUE = "export-snapshot-poll"; // See queue.xml.
 
+  static final String SERVICE = Service.BACKEND.toString();
   static final String PATH = "/_dr/task/checkDatastoreBackup"; // See web.xml.
   static final Duration POLL_COUNTDOWN = Duration.standardMinutes(2);
 
@@ -92,6 +92,8 @@ public class CheckBackupAction implements Runnable {
   @Inject
   @Parameter(CHECK_BACKUP_KINDS_TO_LOAD_PARAM)
   String kindsToLoadParam;
+
+  @Inject CloudTasksUtils cloudTasksUtils;
 
   @Inject
   CheckBackupAction() {}
@@ -175,21 +177,23 @@ public class CheckBackupAction implements Runnable {
     if (exportedKindsToLoad.isEmpty()) {
       message += "no kinds to load into BigQuery.";
     } else {
-      enqueueUploadBackupTask(backupId, backup.getExportFolderUrl(), exportedKindsToLoad);
+      /** Enqueue a task for starting a backup load. */
+      cloudTasksUtils.enqueue(
+          UploadDatastoreBackupAction.QUEUE,
+          CloudTasksUtils.createPostTask(
+              UploadDatastoreBackupAction.PATH,
+              UploadDatastoreBackupAction.SERVICE,
+              ImmutableMultimap.of(
+                  UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM,
+                  backupId,
+                  UploadDatastoreBackupAction.UPLOAD_BACKUP_FOLDER_PARAM,
+                  backup.getExportFolderUrl(),
+                  UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM,
+                  Joiner.on(',').join(exportedKindsToLoad))));
+
       message += "BigQuery load task enqueued.";
     }
     logger.atInfo().log(message);
     response.setPayload(message);
-  }
-
-  /** Enqueue a poll task to monitor the named backup for completion. */
-  static TaskHandle enqueuePollTask(String backupId, ImmutableSet<String> kindsToLoad) {
-    return QueueFactory.getQueue(QUEUE)
-        .add(
-            TaskOptions.Builder.withUrl(PATH)
-                .method(Method.POST)
-                .countdownMillis(POLL_COUNTDOWN.getMillis())
-                .param(CHECK_BACKUP_NAME_PARAM, backupId)
-                .param(CHECK_BACKUP_KINDS_TO_LOAD_PARAM, Joiner.on(',').join(kindsToLoad)));
   }
 }
