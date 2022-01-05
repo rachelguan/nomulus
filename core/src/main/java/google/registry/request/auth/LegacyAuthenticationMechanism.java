@@ -62,7 +62,7 @@ public class LegacyAuthenticationMechanism implements AuthenticationMechanism {
   }
 
   private boolean validateXsrf(HttpServletRequest request) {
-    String headerToken = emptyToNull(request.getParameter(X_CSRF_TOKEN));
+    String headerToken = emptyToNull(request.getHeader(X_CSRF_TOKEN));
     if (headerToken != null) {
       return xsrfTokenManager.validateToken(headerToken);
     }

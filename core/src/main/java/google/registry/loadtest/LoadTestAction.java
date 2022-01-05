@@ -28,21 +28,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.flogger.FluentLogger;
+import com.google.protobuf.Timestamp;
 import google.registry.config.RegistryEnvironment;
 import google.registry.request.Action;
 import google.registry.request.Action.Service;
 import google.registry.request.Parameter;
 import google.registry.request.auth.Auth;
 import google.registry.security.XsrfTokenManager;
-import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.function.Function;
 import javax.inject.Inject;
+import org.apache.arrow.util.VisibleForTesting;
 import org.joda.time.DateTime;
 
 /**
@@ -150,7 +151,6 @@ public class LoadTestAction implements Runnable {
   int hostInfosPerSecond;
 
   @Inject CloudTasksUtils cloudTasksUtils;
-  @Inject Clock clock;
 
   private final String xmlContactCreateTmpl;
   private final String xmlContactCreateFail;
@@ -326,27 +326,41 @@ public class LoadTestAction implements Runnable {
     return name.toString();
   }
 
+  @VisibleForTesting
   private List<Task> createTasks(List<String> xmls, DateTime start) {
     ImmutableList.Builder<Task> tasks = new ImmutableList.Builder<>();
     for (int i = 0; i < xmls.size(); i++) {
-      // Space tasks evenly within across a second.
-      int offsetMillis = (int) (1000.0 / xmls.size() * i);
-      CloudTasksUtils.createPostTask(
-          "/_dr/epptool",
-          Service.TOOLS.toString(),
-          ImmutableMultimap.of(
-              X_CSRF_TOKEN,
-              xsrfToken,
-              "clientId",
-              registrarId,
-              "superuser",
-              Boolean.FALSE.toString(),
-              "dryRun",
-              Boolean.FALSE.toString(),
-              "xml",
-              xmls.get(i)),
-          clock,
-          Optional.of((int) (start.getMillis() + offsetMillis)));
+      tasks.add(
+          Task.newBuilder()
+              .setAppEngineHttpRequest(
+                  CloudTasksUtils.createPostTask(
+                          "/_dr/epptool",
+                          Service.TOOLS.toString(),
+                          ImmutableMultimap.of(
+                              "clientId",
+                              registrarId,
+                              "superuser",
+                              Boolean.FALSE.toString(),
+                              "dryRun",
+                              Boolean.FALSE.toString(),
+                              "xml",
+                              xmls.get(i)))
+                      .toBuilder()
+                      // Space tasks evenly within across a second.
+                      .setScheduleTime(
+                          Timestamp.newBuilder()
+                              .setSeconds(
+                                  Instant.ofEpochMilli(
+                                          start
+                                              .plusMillis((int) (1000.0 / xmls.size() * i))
+                                              .getMillis())
+                                      .getEpochSecond())
+                              .build())
+                      .getAppEngineHttpRequest()
+                      .toBuilder()
+                      .putHeaders(X_CSRF_TOKEN, xsrfToken)
+                      .build())
+              .build());
     }
     return tasks.build();
   }

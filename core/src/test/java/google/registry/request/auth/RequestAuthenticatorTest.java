@@ -202,7 +202,7 @@ class RequestAuthenticatorTest {
   @Test
   void testAnyUserAnyMethod_success() {
     fakeUserService.setUser(testUser, false /* isAdmin */);
-    when(req.getParameter(XsrfTokenManager.X_CSRF_TOKEN))
+    when(req.getHeader(XsrfTokenManager.X_CSRF_TOKEN))
         .thenReturn(xsrfTokenManager.generateToken(testUser.getEmail()));
 
     Optional<AuthResult> authResult = runTest(fakeUserService, AUTH_ANY_USER_ANY_METHOD);
@@ -257,7 +257,7 @@ class RequestAuthenticatorTest {
   @Test
   void testAdminUserAnyMethod_success() {
     fakeUserService.setUser(testUser, true /* isAdmin */);
-    when(req.getParameter(XsrfTokenManager.X_CSRF_TOKEN))
+    when(req.getHeader(XsrfTokenManager.X_CSRF_TOKEN))
         .thenReturn(xsrfTokenManager.generateToken(testUser.getEmail()));
 
     Optional<AuthResult> authResult = runTest(fakeUserService, AUTH_ADMIN_USER_ANY_METHOD);
