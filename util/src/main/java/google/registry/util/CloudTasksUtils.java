@@ -115,10 +115,7 @@ public class CloudTasksUtils implements Serializable {
             .setHttpMethod(method)
             .setAppEngineRouting(AppEngineRouting.newBuilder().setService(service).build());
 
-    if (method == HttpMethod.POST) {
-      requestBuilder.putHeaders(HttpHeaders.CONTENT_TYPE, MediaType.FORM_DATA.toString());
-    }
-    if (params != null && !params.isEmpty()) {
+    if (!CollectionUtils.isNullOrEmpty(params)) {
       Escaper escaper = UrlEscapers.urlPathSegmentEscaper();
       String encodedParams =
           Joiner.on("&")
@@ -133,7 +130,9 @@ public class CloudTasksUtils implements Serializable {
       if (method == HttpMethod.GET) {
         path = String.format("%s?%s", path, encodedParams);
       } else {
-        requestBuilder.setBody(ByteString.copyFrom(encodedParams, StandardCharsets.UTF_8));
+        requestBuilder
+            .putHeaders(HttpHeaders.CONTENT_TYPE, MediaType.FORM_DATA.toString())
+            .setBody(ByteString.copyFrom(encodedParams, StandardCharsets.UTF_8));
       }
     }
     requestBuilder.setRelativeUri(path);
