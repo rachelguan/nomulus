@@ -98,8 +98,6 @@ public class CloudTasksUtilsTest {
     assertThat(task.getAppEngineHttpRequest().getRelativeUri()).isEqualTo("/the/path");
     assertThat(task.getAppEngineHttpRequest().getAppEngineRouting().getService())
         .isEqualTo("myservice");
-    assertThat(task.getAppEngineHttpRequest().getHeadersMap().get("Content-Type"))
-        .isEqualTo("application/x-www-form-urlencoded");
     assertThat(task.getAppEngineHttpRequest().getBody().toString(StandardCharsets.UTF_8)).isEmpty();
     assertThat(task.getScheduleTime().getSeconds()).isEqualTo(0);
   }
@@ -121,8 +119,6 @@ public class CloudTasksUtilsTest {
     assertThat(task.getAppEngineHttpRequest().getRelativeUri()).isEqualTo("/the/path");
     assertThat(task.getAppEngineHttpRequest().getAppEngineRouting().getService())
         .isEqualTo("myservice");
-    assertThat(task.getAppEngineHttpRequest().getHeadersMap().get("Content-Type"))
-        .isEqualTo("application/x-www-form-urlencoded");
     assertThat(task.getAppEngineHttpRequest().getBody().toString(StandardCharsets.UTF_8)).isEmpty();
     assertThat(task.getScheduleTime().getSeconds()).isEqualTo(0);
   }
