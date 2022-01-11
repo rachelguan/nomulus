@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 import javax.inject.Inject;
-import org.apache.arrow.util.VisibleForTesting;
 import org.joda.time.DateTime;
 
 /**
@@ -326,10 +325,12 @@ public class LoadTestAction implements Runnable {
     return name.toString();
   }
 
-  @VisibleForTesting
   private List<Task> createTasks(List<String> xmls, DateTime start) {
     ImmutableList.Builder<Task> tasks = new ImmutableList.Builder<>();
     for (int i = 0; i < xmls.size(); i++) {
+      // Space tasks evenly within across a second.
+      Instant scheduleTime =
+          Instant.ofEpochMilli(start.plusMillis((int) (1000.0 / xmls.size() * i)).getMillis());
       tasks.add(
           Task.newBuilder()
               .setAppEngineHttpRequest(
@@ -346,19 +347,14 @@ public class LoadTestAction implements Runnable {
                               "xml",
                               xmls.get(i)))
                       .toBuilder()
-                      // Space tasks evenly within across a second.
-                      .setScheduleTime(
-                          Timestamp.newBuilder()
-                              .setSeconds(
-                                  Instant.ofEpochMilli(
-                                          start
-                                              .plusMillis((int) (1000.0 / xmls.size() * i))
-                                              .getMillis())
-                                      .getEpochSecond())
-                              .build())
                       .getAppEngineHttpRequest()
                       .toBuilder()
                       .putHeaders(X_CSRF_TOKEN, xsrfToken)
+                      .build())
+              .setScheduleTime(
+                  Timestamp.newBuilder()
+                      .setSeconds(scheduleTime.getEpochSecond())
+                      .setNanos(scheduleTime.getNano())
                       .build())
               .build());
     }
