@@ -14,7 +14,6 @@
 
 package google.registry.loadtest;
 
-import static com.google.appengine.api.taskqueue.QueueConstants.maxTasksPerAdd;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.partition;
@@ -65,6 +64,7 @@ public class LoadTestAction implements Runnable {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   private static final int NUM_QUEUES = 10;
+  private static final int MAX_TASKS_PER_LOAD = 100;
   private static final int ARBITRARY_VALID_HOST_LENGTH = 40;
   private static final int MAX_CONTACT_LENGTH = 13;
   private static final int MAX_DOMAIN_LABEL_LENGTH = 63;
@@ -362,7 +362,7 @@ public class LoadTestAction implements Runnable {
   }
 
   private void enqueue(List<Task> tasks) {
-    List<List<Task>> chunks = partition(tasks, maxTasksPerAdd());
+    List<List<Task>> chunks = partition(tasks, MAX_TASKS_PER_LOAD);
     // Farm out tasks to multiple queues to work around queue qps quotas.
     for (int i = 0; i < chunks.size(); i++) {
       cloudTasksUtils.enqueue("load" + (i % NUM_QUEUES), chunks.get(i));
