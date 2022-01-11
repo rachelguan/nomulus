@@ -40,6 +40,7 @@ import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
+import google.registry.testing.FakeClock;
 import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +79,7 @@ public class UploadDatastoreBackupActionTest {
     action.backupId = "2018-12-05T17:46:39_92612";
     action.backupKinds = "one,two,three";
     action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
+    action.clock = new FakeClock();
   }
 
 

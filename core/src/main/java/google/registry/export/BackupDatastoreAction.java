@@ -16,9 +16,11 @@ package google.registry.export;
 
 import static google.registry.request.Action.Method.POST;
 
+import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
+import com.google.protobuf.Timestamp;
 import google.registry.config.RegistryConfig;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.Operation;
@@ -29,7 +31,7 @@ import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
-import java.util.Optional;
+import java.time.Instant;
 import javax.inject.Inject;
 
 /**
@@ -82,18 +84,30 @@ public class BackupDatastoreAction implements Runnable {
 
       // Enqueue a poll task to monitor the backup for completion and load REPORTING-related kinds
       // into bigquery.
+      // TODO(rachelguan): replace it with schedule time helper once that PR gets merged
+      Instant scheduleTime =
+          Instant.ofEpochMilli(
+              clock
+                  .nowUtc()
+                  .plusMillis((int) CheckBackupAction.POLL_COUNTDOWN.getMillis())
+                  .getMillis());
       cloudTasksUtils.enqueue(
           CheckBackupAction.QUEUE,
-          CloudTasksUtils.createPostTask(
-              CheckBackupAction.PATH,
-              CheckBackupAction.SERVICE,
-              ImmutableMultimap.of(
-                  CheckBackupAction.CHECK_BACKUP_NAME_PARAM,
-                  backupName,
-                  CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
-                  Joiner.on(',').join(AnnotatedEntities.getReportingKinds())),
-              clock,
-              Optional.of((int) CheckBackupAction.POLL_COUNTDOWN.getMillis())));
+          Task.newBuilder(
+                  CloudTasksUtils.createPostTask(
+                      CheckBackupAction.PATH,
+                      CheckBackupAction.SERVICE,
+                      ImmutableMultimap.of(
+                          CheckBackupAction.CHECK_BACKUP_NAME_PARAM,
+                          backupName,
+                          CheckBackupAction.CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
+                          Joiner.on(',').join(AnnotatedEntities.getReportingKinds()))))
+              .setScheduleTime(
+                  Timestamp.newBuilder()
+                      .setSeconds(scheduleTime.getEpochSecond())
+                      .setNanos(scheduleTime.getNano())
+                      .build())
+              .build());
 
       String message =
           String.format(

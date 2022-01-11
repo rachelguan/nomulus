@@ -20,25 +20,18 @@ import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.cloud.tasks.v2.Task;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
-import com.google.protobuf.ByteString;
 import dagger.Lazy;
 import google.registry.request.Action;
-import google.registry.request.Action.Service;
 import google.registry.request.Header;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.NotModifiedException;
 import google.registry.request.Payload;
 import google.registry.request.auth.Auth;
-import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Optional;
 import javax.inject.Inject;
 import org.joda.time.Duration;
 
@@ -72,8 +65,6 @@ public class BigqueryPollJobAction implements Runnable {
   @Inject @Header(CHAINED_TASK_QUEUE_HEADER) Lazy<String> chainedQueueName;
   @Inject @Header(PROJECT_ID_HEADER) String projectId;
   @Inject @Header(JOB_ID_HEADER) String jobId;
-
-  @Inject Clock clock;
 
   @Inject @Payload byte[] payload;
 
@@ -131,50 +122,5 @@ public class BigqueryPollJobAction implements Runnable {
     }
     logger.atInfo().log("Bigquery job succeeded - %s.", jobRefString);
     return true;
-  }
-
-  /** Helper class to enqueue a bigquery poll job. */
-  public static class BigqueryPollJob {
-    /** Enqueue a task to poll for the success or failure of the referenced BigQuery job. */
-    public static Task createGetTask(JobReference jobRef, Clock clock) {
-      return Task.newBuilder()
-          .setAppEngineHttpRequest(
-              CloudTasksUtils.createGetTask(
-                      PATH,
-                      Service.BACKEND.toString(),
-                      ImmutableMultimap.of(),
-                      clock,
-                      Optional.of((int) POLL_COUNTDOWN.getMillis()))
-                  .getAppEngineHttpRequest()
-                  .toBuilder()
-                  .putHeaders(PROJECT_ID_HEADER, jobRef.getProjectId())
-                  .putHeaders(JOB_ID_HEADER, jobRef.getJobId())
-                  .build())
-          .build();
-    }
-
-    /**
-     * Enqueue a task to poll for the success or failure of the referenced BigQuery job and to
-     * launch the provided task in the specified queue if the job succeeds.
-     */
-    public static Task createPostTask(
-        JobReference jobRef, Task chainedTask, String chainedTaskQueue) throws IOException {
-      // Serialize the chainedTask into a byte array to put in the task payload.
-      ByteArrayOutputStream taskBytes = new ByteArrayOutputStream();
-      new ObjectOutputStream(taskBytes).writeObject(chainedTask);
-      return Task.newBuilder()
-          .setAppEngineHttpRequest(
-              CloudTasksUtils.createPostTask(
-                      PATH, Service.BACKEND.toString(), ImmutableMultimap.of())
-                  .getAppEngineHttpRequest()
-                  .toBuilder()
-                  .putHeaders(PROJECT_ID_HEADER, jobRef.getProjectId())
-                  .putHeaders(JOB_ID_HEADER, jobRef.getJobId())
-                  .putHeaders(CHAINED_TASK_QUEUE_HEADER, chainedTaskQueue)
-                  .setBody(ByteString.copyFrom(taskBytes.toByteArray()))
-                  .build())
-          .build();
-    }
-
   }
 }

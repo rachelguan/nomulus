@@ -16,6 +16,7 @@ package google.registry.export;
 
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.testing.TestLogHandlerUtils.assertLogMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -25,27 +26,29 @@ import static org.mockito.Mockito.when;
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.ErrorProto;
 import com.google.api.services.bigquery.model.Job;
-import com.google.api.services.bigquery.model.JobReference;
 import com.google.api.services.bigquery.model.JobStatus;
 import com.google.cloud.tasks.v2.AppEngineHttpRequest;
 import com.google.cloud.tasks.v2.AppEngineRouting;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.Task;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.protobuf.ByteString;
+import google.registry.request.Action.Service;
 import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.NotModifiedException;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
-import google.registry.testing.FakeClock;
 import google.registry.util.CapturingLogHandler;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.JdkLoggerConfig;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -79,27 +82,8 @@ public class BigqueryPollJobActionTest {
     action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
     action.projectId = PROJECT_ID;
     action.jobId = JOB_ID;
-    action.clock = new FakeClock();
     action.chainedQueueName = () -> CHAINED_QUEUE_NAME;
     JdkLoggerConfig.getConfig(BigqueryPollJobAction.class).addHandler(logHandler);
-  }
-
-  private static TaskMatcher newPollJobTaskMatcher(HttpMethod method) {
-    return new TaskMatcher()
-        .method(method)
-        .url(BigqueryPollJobAction.PATH)
-        .header(BigqueryPollJobAction.PROJECT_ID_HEADER, PROJECT_ID)
-        .header(BigqueryPollJobAction.JOB_ID_HEADER, JOB_ID);
-  }
-
-  @Test
-  void testSuccess_enqueuePollTask() {
-    action.cloudTasksUtils.enqueue(
-        BigqueryPollJobAction.QUEUE,
-        BigqueryPollJobAction.BigqueryPollJob.createGetTask(
-            new JobReference().setProjectId(PROJECT_ID).setJobId(JOB_ID), action.clock));
-    cloudTasksHelper.assertTasksEnqueued(
-        BigqueryPollJobAction.QUEUE, newPollJobTaskMatcher(HttpMethod.GET));
   }
 
   @Test
@@ -115,18 +99,44 @@ public class BigqueryPollJobActionTest {
                     .build())
             .build();
 
+    // Serialize the chainedTask into a byte array to put in the task payload.
+    ByteArrayOutputStream taskBytes = new ByteArrayOutputStream();
+    new ObjectOutputStream(taskBytes).writeObject(chainedTask);
     action.cloudTasksUtils.enqueue(
         BigqueryPollJobAction.QUEUE,
-        BigqueryPollJobAction.BigqueryPollJob.createPostTask(
-            new JobReference().setProjectId(PROJECT_ID).setJobId(JOB_ID),
-            chainedTask,
-            CHAINED_QUEUE_NAME));
+        Task.newBuilder()
+            .setAppEngineHttpRequest(
+                CloudTasksUtils.createPostTask(
+                        BigqueryPollJobAction.PATH,
+                        Service.BACKEND.toString(),
+                        ImmutableMultimap.of())
+                    .getAppEngineHttpRequest()
+                    .toBuilder()
+                    .putHeaders(BigqueryPollJobAction.PROJECT_ID_HEADER, PROJECT_ID)
+                    .putHeaders(BigqueryPollJobAction.JOB_ID_HEADER, JOB_ID)
+                    .putHeaders(BigqueryPollJobAction.CHAINED_TASK_QUEUE_HEADER, CHAINED_QUEUE_NAME)
+                    // need to include CONTENT_TYPE in header when body is not empty
+                    .putHeaders(HttpHeaders.CONTENT_TYPE, MediaType.FORM_DATA.toString())
+                    .setBody(ByteString.copyFrom(taskBytes.toByteArray()))
+                    .build())
+            .build());
 
     cloudTasksHelper.assertTasksEnqueued(
-        BigqueryPollJobAction.QUEUE, new TaskMatcher().method(HttpMethod.POST));
+        BigqueryPollJobAction.QUEUE,
+        new TaskMatcher()
+            .method(HttpMethod.POST)
+            .url(BigqueryPollJobAction.PATH)
+            .header(BigqueryPollJobAction.PROJECT_ID_HEADER, PROJECT_ID)
+            .header(BigqueryPollJobAction.JOB_ID_HEADER, JOB_ID));
 
-    // assertThat(cloudTasksHelper.getTestTasksFor(BigqueryPollJobAction.QUEUE).get(0))
-    //     .isEqualTo(chainedTask);
+    Task enqueuedTask = cloudTasksHelper.getTestTasksFor(BigqueryPollJobAction.QUEUE).get(0);
+    assertThat(
+            (Task)
+                new ObjectInputStream(
+                        new ByteArrayInputStream(
+                            enqueuedTask.getAppEngineHttpRequest().getBody().toByteArray()))
+                    .readObject())
+        .isEqualTo(chainedTask);
   }
 
   @Test
@@ -143,16 +153,17 @@ public class BigqueryPollJobActionTest {
     when(bigqueryJobsGet.execute()).thenReturn(
         new Job().setStatus(new JobStatus().setState("DONE")));
 
-    AppEngineHttpRequest.Builder requestBuilder =
-        AppEngineHttpRequest.newBuilder()
-            .setHttpMethod(HttpMethod.POST)
-            .setRelativeUri("/_dr/something")
-            .putHeaders("X-Test", "foo")
-            .putHeaders(HttpHeaders.CONTENT_TYPE, MediaType.FORM_DATA.toString())
-            .setBody(ByteString.copyFromUtf8("testing=bar"));
-
     Task chainedTask =
-        Task.newBuilder().setName("my_task_name").setAppEngineHttpRequest(requestBuilder).build();
+        Task.newBuilder()
+            .setName("my_task_name")
+            .setAppEngineHttpRequest(
+                AppEngineHttpRequest.newBuilder()
+                    .setHttpMethod(HttpMethod.POST)
+                    .setRelativeUri("/_dr/something")
+                    .putHeaders("X-Test", "foo")
+                    .putHeaders(HttpHeaders.CONTENT_TYPE, MediaType.FORM_DATA.toString())
+                    .setBody(ByteString.copyFromUtf8("testing=bar")))
+            .build();
 
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     new ObjectOutputStream(bytes).writeObject(chainedTask);
@@ -205,7 +216,7 @@ public class BigqueryPollJobActionTest {
   void testFailure_badChainedTaskPayload() throws Exception {
     when(bigqueryJobsGet.execute()).thenReturn(
         new Job().setStatus(new JobStatus().setState("DONE")));
-    action.payload = "payload".getBytes(StandardCharsets.UTF_8);
+    action.payload = "payload".getBytes(UTF_8);
     BadRequestException thrown = assertThrows(BadRequestException.class, action::run);
     assertThat(thrown).hasMessageThat().contains("Cannot deserialize task from payload");
   }
