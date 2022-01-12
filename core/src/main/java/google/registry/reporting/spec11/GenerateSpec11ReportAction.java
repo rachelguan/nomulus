@@ -16,7 +16,6 @@ package google.registry.reporting.spec11;
 
 import static google.registry.beam.BeamUtils.createJobName;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
-import static google.registry.reporting.ReportingUtils.enqueueBeamReportingTask;
 import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -26,6 +25,7 @@ import com.google.api.services.dataflow.model.LaunchFlexTemplateParameter;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateRequest;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateResponse;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
 import google.registry.config.RegistryConfig.Config;
@@ -34,14 +34,17 @@ import google.registry.keyring.api.KeyModule.Key;
 import google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDatabase;
 import google.registry.reporting.ReportingModule;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.Parameter;
 import google.registry.request.RequestParameters;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
-import java.util.Map;
+import java.util.Optional;
 import javax.inject.Inject;
+import org.joda.time.Duration;
 import org.joda.time.LocalDate;
 
 /**
@@ -73,6 +76,7 @@ public class GenerateSpec11ReportAction implements Runnable {
   private final Dataflow dataflow;
   private final PrimaryDatabase database;
   private final boolean sendEmail;
+  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   GenerateSpec11ReportAction(
@@ -86,7 +90,8 @@ public class GenerateSpec11ReportAction implements Runnable {
       @Parameter(ReportingModule.SEND_EMAIL) boolean sendEmail,
       Clock clock,
       Response response,
-      Dataflow dataflow) {
+      Dataflow dataflow,
+      CloudTasksUtils cloudTasksUtils) {
     this.projectId = projectId;
     this.jobRegion = jobRegion;
     this.stagingBucketUrl = stagingBucketUrl;
@@ -101,6 +106,7 @@ public class GenerateSpec11ReportAction implements Runnable {
     this.response = response;
     this.dataflow = dataflow;
     this.sendEmail = sendEmail;
+    this.cloudTasksUtils = cloudTasksUtils;
   }
 
   @Override
@@ -136,11 +142,23 @@ public class GenerateSpec11ReportAction implements Runnable {
               .execute();
       logger.atInfo().log("Got response: %s", launchResponse.getJob().toPrettyString());
       String jobId = launchResponse.getJob().getId();
-      Map<String, String> beamTaskParameters =
-          ImmutableMap.of(
-              ReportingModule.PARAM_JOB_ID, jobId, ReportingModule.PARAM_DATE, date.toString());
       if (sendEmail) {
-        enqueueBeamReportingTask(PublishSpec11ReportAction.PATH, beamTaskParameters);
+        /** Enqueues a task that takes a Beam jobId and the {@link YearMonth} as parameters. */
+        cloudTasksUtils.enqueue(
+            ReportingModule.BEAM_QUEUE,
+            CloudTasksUtils.createPostTask(
+                PublishSpec11ReportAction.PATH,
+                Service.BACKEND.toString(),
+                ImmutableMultimap.of(
+                    ReportingModule.PARAM_JOB_ID,
+                    jobId,
+                    ReportingModule.PARAM_DATE,
+                    date.toString()),
+                clock,
+                Optional.of(
+                    (int)
+                        Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
+                            .getMillis())));
       }
       response.setStatus(SC_OK);
       response.setPayload(String.format("Launched Spec11 pipeline: %s", jobId));

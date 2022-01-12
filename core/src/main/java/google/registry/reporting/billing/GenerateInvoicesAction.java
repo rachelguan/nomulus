@@ -17,7 +17,6 @@ package google.registry.reporting.billing;
 import static google.registry.beam.BeamUtils.createJobName;
 import static google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDatabase.CLOUD_SQL;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
-import static google.registry.reporting.ReportingUtils.enqueueBeamReportingTask;
 import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -27,6 +26,7 @@ import com.google.api.services.dataflow.model.LaunchFlexTemplateParameter;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateRequest;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateResponse;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
 import google.registry.config.RegistryConfig.Config;
@@ -35,14 +35,17 @@ import google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDataba
 import google.registry.persistence.PersistenceModule;
 import google.registry.reporting.ReportingModule;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.Parameter;
 import google.registry.request.RequestParameters;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
-import java.util.Map;
+import java.util.Optional;
 import javax.inject.Inject;
+import org.joda.time.Duration;
 import org.joda.time.YearMonth;
 
 /**
@@ -77,6 +80,8 @@ public class GenerateInvoicesAction implements Runnable {
   private final Dataflow dataflow;
   private final PrimaryDatabase database;
 
+  private final CloudTasksUtils cloudTasksUtils;
+
   @Inject
   GenerateInvoicesAction(
       @Config("projectId") String projectId,
@@ -88,6 +93,7 @@ public class GenerateInvoicesAction implements Runnable {
       @Parameter(RequestParameters.PARAM_DATABASE) PrimaryDatabase database,
       YearMonth yearMonth,
       BillingEmailUtils emailUtils,
+      CloudTasksUtils cloudTasksUtils,
       Clock clock,
       Response response,
       Dataflow dataflow) {
@@ -105,6 +111,7 @@ public class GenerateInvoicesAction implements Runnable {
     this.database = database;
     this.yearMonth = yearMonth;
     this.emailUtils = emailUtils;
+    this.cloudTasksUtils = cloudTasksUtils;
     this.clock = clock;
     this.response = response;
     this.dataflow = dataflow;
@@ -144,13 +151,21 @@ public class GenerateInvoicesAction implements Runnable {
       logger.atInfo().log("Got response: %s", launchResponse.getJob().toPrettyString());
       String jobId = launchResponse.getJob().getId();
       if (shouldPublish) {
-        Map<String, String> beamTaskParameters =
-            ImmutableMap.of(
-                ReportingModule.PARAM_JOB_ID,
-                jobId,
-                ReportingModule.PARAM_YEAR_MONTH,
-                yearMonth.toString());
-        enqueueBeamReportingTask(PublishInvoicesAction.PATH, beamTaskParameters);
+        cloudTasksUtils.enqueue(
+            ReportingModule.BEAM_QUEUE,
+            CloudTasksUtils.createPostTask(
+                PublishInvoicesAction.PATH,
+                Service.BACKEND.toString(),
+                ImmutableMultimap.of(
+                    ReportingModule.PARAM_JOB_ID,
+                    jobId,
+                    ReportingModule.PARAM_YEAR_MONTH,
+                    yearMonth.toString()),
+                clock,
+                Optional.of(
+                    (int)
+                        Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
+                            .getMillis())));
       }
       response.setStatus(SC_OK);
       response.setPayload(String.format("Launched invoicing pipeline: %s", jobId));
