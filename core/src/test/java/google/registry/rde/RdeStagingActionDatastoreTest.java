@@ -25,6 +25,7 @@ import static google.registry.rde.RdeFixtures.makeHostResource;
 import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.DatabaseHelper.persistResourceWithCommitLog;
+import static google.registry.testing.TaskQueueHelper.assertAtLeastOneTaskIsEnqueued;
 import static google.registry.testing.TestDataHelper.loadFile;
 import static google.registry.tldconfig.idn.IdnTableEnum.EXTENDED_LATIN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -196,8 +197,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.run();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getPayload()).contains("/_ah/pipeline/status.html?root=");
-    // TODO(rachelguan): determine where task gets pushed into "mapreduce"
-    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
+    assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test
@@ -216,7 +216,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     clock.setTo(DateTime.parse("2000-01-01T00:05:00Z"));
     action.transactionCooldown = Duration.standardMinutes(5);
     action.run();
-    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
+    assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test
@@ -304,7 +304,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.run();
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getPayload()).contains("_ah/pipeline/status.html?root=");
-    cloudTasksHelper.assertAtLeastOneTaskIsEnqueued("mapreduce");
+    assertAtLeastOneTaskIsEnqueued("mapreduce");
   }
 
   @Test

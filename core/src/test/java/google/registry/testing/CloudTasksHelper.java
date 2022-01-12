@@ -169,11 +169,6 @@ public class CloudTasksHelper implements Serializable {
     }
   }
 
-  /** Ensures that the named queue contains at least one task. */
-  public void assertAtLeastOneTaskIsEnqueued(String queueName) {
-    assertThat(getTestTasksFor(queueName).isEmpty()).isFalse();
-  }
-
   private class FakeCloudTasksClient extends CloudTasksUtils.SerializableCloudTasksClient {
 
     private static final long serialVersionUID = 6661964844791720639L;
