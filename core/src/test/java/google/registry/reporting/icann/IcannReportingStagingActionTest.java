@@ -38,6 +38,7 @@ import google.registry.util.Retrier;
 import google.registry.util.SendEmailService;
 import java.util.Optional;
 import javax.mail.internet.InternetAddress;
+import org.joda.time.DateTime;
 import org.joda.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ class IcannReportingStagingActionTest {
     action.recipient = new InternetAddress("recipient@example.com");
     action.emailService = mock(SendEmailService.class);
     action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
-    action.clock = new FakeClock();
+    action.clock = new FakeClock(DateTime.parse("2021-01-02T11:00:00Z"));
 
     when(stager.stageReports(yearMonth, subdir, ReportType.ACTIVITY))
         .thenReturn(ImmutableList.of("a", "b"));
