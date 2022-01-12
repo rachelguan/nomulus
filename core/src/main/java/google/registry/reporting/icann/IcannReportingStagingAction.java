@@ -78,7 +78,6 @@ public final class IcannReportingStagingAction implements Runnable {
   private static final String CRON_QUEUE = "retryable-cron-tasks";
   private static final String DEFAULT_SUBDIR = "icann/monthly";
 
-
   @Inject YearMonth yearMonth;
   @Inject @Parameter(PARAM_SUBDIR) Optional<String> overrideSubdir;
   @Inject @Parameter(PARAM_REPORT_TYPES) ImmutableSet<ReportType> reportTypes;
@@ -88,7 +87,6 @@ public final class IcannReportingStagingAction implements Runnable {
   @Inject @Config("gSuiteOutgoingEmailAddress") InternetAddress sender;
   @Inject @Config("alertRecipientEmailAddress") InternetAddress recipient;
   @Inject SendEmailService emailService;
-
   @Inject Clock clock;
   @Inject CloudTasksUtils cloudTasksUtils;
 

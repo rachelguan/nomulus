@@ -83,9 +83,9 @@ class IcannReportingStagingActionTest {
   }
 
   private void assertUploadTaskEnqueued() {
-    TaskMatcher matcher =
-        new TaskMatcher().url("/_dr/task/icannReportingUpload").method(HttpMethod.POST);
-    cloudTasksHelper.assertTasksEnqueued("retryable-cron-tasks", matcher);
+    cloudTasksHelper.assertTasksEnqueued(
+        "retryable-cron-tasks",
+        new TaskMatcher().url("/_dr/task/icannReportingUpload").method(HttpMethod.POST));
   }
 
   @Test
