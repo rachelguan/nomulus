@@ -79,7 +79,6 @@ public class GenerateInvoicesAction implements Runnable {
   private final Response response;
   private final Dataflow dataflow;
   private final PrimaryDatabase database;
-
   private final CloudTasksUtils cloudTasksUtils;
 
   @Inject

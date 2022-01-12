@@ -40,6 +40,7 @@ public class ReportingModule {
 
   public static final String BEAM_QUEUE = "beam-reporting";
 
+  /** The amount of time needed for the Dataflow jobs to complete. */
   public static final int ENQUEUE_DELAY_MINUTES = 10;
   /**
    * The request parameter name used by reporting actions that takes a year/month parameter, which

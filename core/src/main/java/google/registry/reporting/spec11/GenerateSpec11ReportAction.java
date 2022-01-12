@@ -76,7 +76,7 @@ public class GenerateSpec11ReportAction implements Runnable {
   private final Dataflow dataflow;
   private final PrimaryDatabase database;
   private final boolean sendEmail;
-  private CloudTasksUtils cloudTasksUtils;
+  private final CloudTasksUtils cloudTasksUtils;
 
   @Inject
   GenerateSpec11ReportAction(
@@ -143,7 +143,6 @@ public class GenerateSpec11ReportAction implements Runnable {
       logger.atInfo().log("Got response: %s", launchResponse.getJob().toPrettyString());
       String jobId = launchResponse.getJob().getId();
       if (sendEmail) {
-        /** Enqueues a task that takes a Beam jobId and the {@link YearMonth} as parameters. */
         cloudTasksUtils.enqueue(
             ReportingModule.BEAM_QUEUE,
             CloudTasksUtils.createPostTask(
