@@ -24,7 +24,6 @@ import static javax.servlet.http.HttpServletResponse.SC_OK;
 import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
@@ -134,13 +133,7 @@ public final class IcannReportingStagingAction implements Runnable {
                 CRON_QUEUE,
                 Task.newBuilder(
                         CloudTasksUtils.createPostTask(
-                            IcannReportingUploadAction.PATH,
-                            Service.BACKEND.toString(),
-                            // TODO (rachelguan): remove this placeholder multimap once null params
-                            // is
-                            //  supported
-                            ImmutableMultimap.of(
-                                "placeholder", "will remove when null params is supported")))
+                            IcannReportingUploadAction.PATH, Service.BACKEND.toString(), null))
                     .setScheduleTime(
                         Timestamp.newBuilder()
                             .setSeconds(scheduleTime.getEpochSecond())
