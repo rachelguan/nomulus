@@ -202,6 +202,7 @@ public class CloudTasksUtils implements Serializable {
       Multimap<String, String> params,
       Clock clock,
       long duration) {
+    checkArgument(duration >= 0, "Negative duration is not supported.");
     if (duration == 0) {
       return createTask(path, method, service, params);
     }

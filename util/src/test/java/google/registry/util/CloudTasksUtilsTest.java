@@ -253,6 +253,28 @@ public class CloudTasksUtilsTest {
   }
 
   @Test
+  void testFailure_createGetTasks_withNegativeDelay() {
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                CloudTasksUtils.createGetTask(
+                    "/the/path", "myservice", params, clock, Duration.standardMinutes(-10)));
+    assertThat(thrown).hasMessageThat().isEqualTo("Negative duration is not supported.");
+  }
+
+  @Test
+  void testFailure_createPostTasks_withNegativeDelay() {
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                CloudTasksUtils.createGetTask(
+                    "/the/path", "myservice", params, clock, Duration.standardMinutes(-10)));
+    assertThat(thrown).hasMessageThat().isEqualTo("Negative duration is not supported.");
+  }
+
+  @Test
   void testSuccess_createPostTasks_withZeroDelay() {
     Task task =
         CloudTasksUtils.createPostTask("/the/path", "myservice", params, clock, Duration.ZERO);
