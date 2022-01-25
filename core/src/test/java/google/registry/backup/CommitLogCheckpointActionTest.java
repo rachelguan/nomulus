@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Timestamp;
 import google.registry.model.ofy.CommitLogCheckpoint;
 import google.registry.model.ofy.CommitLogCheckpointRoot;
 import google.registry.testing.AppEngineExtension;
@@ -67,6 +68,7 @@ public class CommitLogCheckpointActionTest {
         QUEUE_NAME,
         new TaskMatcher()
             .url(ExportCommitLogDiffAction.PATH)
+            .scheduleTime(Timestamp.getDefaultInstance())
             .param(ExportCommitLogDiffAction.LOWER_CHECKPOINT_TIME_PARAM, START_OF_TIME.toString())
             .param(ExportCommitLogDiffAction.UPPER_CHECKPOINT_TIME_PARAM, now.toString()));
     assertThat(loadRoot().getLastWrittenTime()).isEqualTo(now);
