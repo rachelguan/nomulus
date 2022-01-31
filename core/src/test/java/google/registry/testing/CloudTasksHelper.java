@@ -325,6 +325,8 @@ public class CloudTasksHelper implements Serializable {
      *
      * <p>Match fails if any headers or params expected on the TaskMatcher are not found on the
      * Task. Note that the inverse is not true (i.e. there may be extra headers on the Task).
+     *
+     * <p>Schedule time by default is Timestamp.getDefaultInstance() or null.
      */
     @Override
     public boolean test(@Nonnull Task task) {
