@@ -83,6 +83,7 @@ public class CommitLogCheckpointActionTest {
         QUEUE_NAME,
         new TaskMatcher()
             .url(ExportCommitLogDiffAction.PATH)
+            .scheduleTime(null)
             .param(ExportCommitLogDiffAction.LOWER_CHECKPOINT_TIME_PARAM, oneMinuteAgo.toString())
             .param(ExportCommitLogDiffAction.UPPER_CHECKPOINT_TIME_PARAM, now.toString()));
     assertThat(loadRoot().getLastWrittenTime()).isEqualTo(now);
