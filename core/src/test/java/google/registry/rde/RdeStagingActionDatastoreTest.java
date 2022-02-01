@@ -26,6 +26,7 @@ import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.DatabaseHelper.persistResourceWithCommitLog;
 import static google.registry.testing.TaskQueueHelper.assertAtLeastOneTaskIsEnqueued;
+import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
 import static google.registry.testing.TestDataHelper.loadFile;
 import static google.registry.tldconfig.idn.IdnTableEnum.EXTENDED_LATIN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -177,7 +178,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
   void testRun_noTlds_returns204() {
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
+    assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -187,7 +188,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     clock.setTo(DateTime.parse("2000-01-01TZ"));
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
+    assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -207,7 +208,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     action.transactionCooldown = Duration.standardMinutes(5);
     action.run();
     assertThat(response.getStatus()).isEqualTo(204);
-    cloudTasksHelper.assertNoTasksEnqueued("mapreduce");
+    assertNoTasksEnqueued("mapreduce");
   }
 
   @Test
@@ -466,9 +467,7 @@ public class RdeStagingActionDatastoreTest extends MapreduceTestCase<RdeStagingA
     executeTasksUntilEmpty("mapreduce", clock);
     cloudTasksHelper.assertTasksEnqueued(
         "rde-upload",
-        new CloudTasksHelper.TaskMatcher()
-            .url(RdeUploadAction.PATH)
-            .param(RequestParameters.PARAM_TLD, "lol"));
+        new TaskMatcher().url(RdeUploadAction.PATH).param(RequestParameters.PARAM_TLD, "lol"));
     cloudTasksHelper.assertTasksEnqueued(
         "brda",
         new TaskMatcher()
