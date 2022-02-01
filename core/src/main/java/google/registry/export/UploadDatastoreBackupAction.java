@@ -14,9 +14,7 @@
 
 package google.registry.export;
 
-import static com.google.appengine.api.taskqueue.QueueFactory.getQueue;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static google.registry.export.UpdateSnapshotViewAction.createViewUpdateTask;
 import static google.registry.request.Action.Method.POST;
 
 import com.google.api.services.bigquery.Bigquery;
@@ -29,12 +27,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
 import google.registry.bigquery.BigqueryUtils.SourceFormat;
 import google.registry.bigquery.BigqueryUtils.WriteDisposition;
 import google.registry.bigquery.CheckedBigquery;
 import google.registry.config.RegistryConfig.Config;
-import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.model.annotations.DeleteAfterMigration;
 import google.registry.request.Action;
 import google.registry.request.Action.Service;
@@ -42,6 +40,7 @@ import google.registry.request.HttpException.BadRequestException;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Parameter;
 import google.registry.request.auth.Auth;
+import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
 import javax.inject.Inject;
 
@@ -74,7 +73,9 @@ public class UploadDatastoreBackupAction implements Runnable {
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Inject CheckedBigquery checkedBigquery;
-  @Inject BigqueryPollJobEnqueuer bigqueryPollEnqueuer;
+
+  @Inject CloudTasksUtils cloudTasksUtils;
+
   @Inject @Config("projectId") String projectId;
 
   @Inject
@@ -129,12 +130,23 @@ public class UploadDatastoreBackupAction implements Runnable {
       Job job = makeLoadJob(jobRef, sourceUri, tableId);
       bigquery.jobs().insert(projectId, job).execute();
 
-      // Enqueue a task to check on the load job's completion, and if it succeeds, to update a
-      // well-known view in BigQuery to point at the newly loaded backup table for this kind.
-      bigqueryPollEnqueuer.enqueuePollTask(
-          jobRef,
-          createViewUpdateTask(BACKUP_DATASET, tableId, kindName, LATEST_BACKUP_VIEW_NAME),
-          getQueue(UpdateSnapshotViewAction.QUEUE));
+      cloudTasksUtils.enqueue(
+          BigqueryPollJobAction.QUEUE,
+          BigqueryPollJobAction.BigqueryPollJob.createPostTask(
+              jobRef,
+              CloudTasksUtils.createPostTask(
+                  UpdateSnapshotViewAction.PATH,
+                  UpdateSnapshotViewAction.SERVICE,
+                  ImmutableMultimap.of(
+                      UpdateSnapshotViewAction.UPDATE_SNAPSHOT_DATASET_ID_PARAM,
+                      BACKUP_DATASET,
+                      UpdateSnapshotViewAction.UPDATE_SNAPSHOT_TABLE_ID_PARAM,
+                      tableId,
+                      UpdateSnapshotViewAction.UPDATE_SNAPSHOT_KIND_PARAM,
+                      kindName,
+                      UpdateSnapshotViewAction.UPDATE_SNAPSHOT_VIEWNAME_PARAM,
+                      LATEST_BACKUP_VIEW_NAME)),
+              UpdateSnapshotViewAction.QUEUE));
 
       builder.append(String.format(" - %s:%s\n", projectId, jobId));
       logger.atInfo().log("Submitted load job %s:%s.", projectId, jobId);

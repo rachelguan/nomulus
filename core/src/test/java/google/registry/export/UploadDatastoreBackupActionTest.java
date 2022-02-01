@@ -16,8 +16,10 @@ package google.registry.export;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
+import static google.registry.export.BigqueryPollJobAction.CHAINED_TASK_QUEUE_HEADER;
+import static google.registry.export.BigqueryPollJobAction.JOB_ID_HEADER;
+import static google.registry.export.BigqueryPollJobAction.PROJECT_ID_HEADER;
 import static google.registry.export.UploadDatastoreBackupAction.BACKUP_DATASET;
-import static google.registry.export.UploadDatastoreBackupAction.LATEST_BACKUP_VIEW_NAME;
 import static google.registry.export.UploadDatastoreBackupAction.getBackupInfoFileForKind;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,13 +33,13 @@ import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
-import com.google.api.services.bigquery.model.JobReference;
-import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.Iterables;
 import google.registry.bigquery.CheckedBigquery;
-import google.registry.export.BigqueryPollJobAction.BigqueryPollJobEnqueuer;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,8 +60,8 @@ public class UploadDatastoreBackupActionTest {
   private final Bigquery.Datasets bigqueryDatasets = mock(Bigquery.Datasets.class);
   private final Bigquery.Datasets.Insert bigqueryDatasetsInsert =
       mock(Bigquery.Datasets.Insert.class);
-  private final BigqueryPollJobEnqueuer bigqueryPollEnqueuer = mock(BigqueryPollJobEnqueuer.class);
   private UploadDatastoreBackupAction action;
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   void beforeEach() throws Exception {
@@ -71,11 +73,11 @@ public class UploadDatastoreBackupActionTest {
         .thenReturn(bigqueryDatasetsInsert);
     action = new UploadDatastoreBackupAction();
     action.checkedBigquery = checkedBigquery;
-    action.bigqueryPollEnqueuer = bigqueryPollEnqueuer;
     action.projectId = "Project-Id";
     action.backupFolderUrl = "gs://bucket/path";
     action.backupId = "2018-12-05T17:46:39_92612";
     action.backupKinds = "one,two,three";
+    action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
   }
 
 
@@ -132,33 +134,23 @@ public class UploadDatastoreBackupActionTest {
     verify(bigqueryJobsInsert, times(3)).execute();
 
     // Check that the poll tasks for each load job were enqueued.
-    verify(bigqueryPollEnqueuer)
-        .enqueuePollTask(
-            new JobReference()
-                .setProjectId("Project-Id")
-                .setJobId("load-backup-2018_12_05T17_46_39_92612-one"),
-            UpdateSnapshotViewAction.createViewUpdateTask(
-                BACKUP_DATASET, "2018_12_05T17_46_39_92612_one", "one", LATEST_BACKUP_VIEW_NAME),
-            QueueFactory.getQueue(UpdateSnapshotViewAction.QUEUE));
-    verify(bigqueryPollEnqueuer)
-        .enqueuePollTask(
-            new JobReference()
-                .setProjectId("Project-Id")
-                .setJobId("load-backup-2018_12_05T17_46_39_92612-two"),
-            UpdateSnapshotViewAction.createViewUpdateTask(
-                BACKUP_DATASET, "2018_12_05T17_46_39_92612_two", "two", LATEST_BACKUP_VIEW_NAME),
-            QueueFactory.getQueue(UpdateSnapshotViewAction.QUEUE));
-    verify(bigqueryPollEnqueuer)
-        .enqueuePollTask(
-            new JobReference()
-                .setProjectId("Project-Id")
-                .setJobId("load-backup-2018_12_05T17_46_39_92612-three"),
-            UpdateSnapshotViewAction.createViewUpdateTask(
-                BACKUP_DATASET,
-                "2018_12_05T17_46_39_92612_three",
-                "three",
-                LATEST_BACKUP_VIEW_NAME),
-            QueueFactory.getQueue(UpdateSnapshotViewAction.QUEUE));
+    cloudTasksHelper.assertTasksEnqueued(
+        BigqueryPollJobAction.QUEUE,
+        new TaskMatcher()
+            .method(HttpMethod.POST)
+            .header(PROJECT_ID_HEADER, "Project-Id")
+            .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-one")
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE),
+        new TaskMatcher()
+            .method(HttpMethod.POST)
+            .header(PROJECT_ID_HEADER, "Project-Id")
+            .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-two")
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE),
+        new TaskMatcher()
+            .method(HttpMethod.POST)
+            .header(PROJECT_ID_HEADER, "Project-Id")
+            .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-three")
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE));
   }
 
   @Test

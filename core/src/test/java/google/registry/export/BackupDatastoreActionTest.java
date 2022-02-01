@@ -27,6 +27,7 @@ import google.registry.export.datastore.Operation;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
+import google.registry.testing.FakeClock;
 import google.registry.testing.FakeResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,7 @@ public class BackupDatastoreActionTest {
     action.datastoreAdmin = datastoreAdmin;
     action.response = response;
     action.cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
+    action.clock = new FakeClock();
     when(datastoreAdmin.export(
             "gs://registry-project-id-datastore-backups", AnnotatedEntities.getBackupKinds()))
         .thenReturn(exportRequest);
