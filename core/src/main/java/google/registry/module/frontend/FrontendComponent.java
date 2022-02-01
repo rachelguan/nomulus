@@ -38,7 +38,6 @@ import google.registry.request.Modules.UrlFetchTransportModule;
 import google.registry.request.Modules.UserServiceModule;
 import google.registry.request.auth.AuthModule;
 import google.registry.ui.ConsoleDebug.ConsoleConfigModule;
-import google.registry.util.CloudTasksUtils;
 import google.registry.util.UtilsModule;
 import javax.inject.Singleton;
 
