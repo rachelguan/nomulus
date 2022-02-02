@@ -74,8 +74,8 @@ class RegistrarSettingsActionTest extends RegistrarSettingsActionTestCase {
         "sheet",
         new TaskMatcher()
             .url(SyncRegistrarsSheetAction.PATH)
-            .method(HttpMethod.GET)
-            .header("Host", "backend.hostname"));
+            .service("Backend")
+            .method(HttpMethod.GET));
     assertMetric(CLIENT_ID, "update", "[OWNER]", "SUCCESS");
   }
 

@@ -26,7 +26,6 @@ import static google.registry.security.JsonResponseHelper.Status.SUCCESS;
 import static google.registry.util.PreconditionsUtils.checkArgumentPresent;
 
 import com.google.auto.value.AutoValue;
-import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
@@ -602,16 +601,8 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
     // Enqueues a sync registrar sheet task targeting the App Engine service specified by hostname.
     cloudTasksUtils.enqueue(
         SyncRegistrarsSheetAction.QUEUE,
-        Task.newBuilder()
-            .setAppEngineHttpRequest(
-                CloudTasksUtils.createGetTask(
-                        SyncRegistrarsSheetAction.PATH,
-                        Service.BACKEND.toString(),
-                        ImmutableMultimap.of())
-                    .getAppEngineHttpRequest()
-                    .toBuilder()
-                    .putHeaders("Host", appEngineServiceUtils.getCurrentVersionHostname("backend")))
-            .build());
+        CloudTasksUtils.createGetTask(
+            SyncRegistrarsSheetAction.PATH, Service.BACKEND.toString(), ImmutableMultimap.of()));
     String environment = Ascii.toLowerCase(String.valueOf(RegistryEnvironment.get()));
     sendEmailUtils.sendEmail(
         String.format(
