@@ -21,13 +21,11 @@ import static google.registry.request.Action.Method.POST;
 import static javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
-import com.google.cloud.tasks.v2.Task;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
-import com.google.protobuf.Timestamp;
 import google.registry.bigquery.BigqueryJobFailureException;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.reporting.icann.IcannReportingModule.ReportType;
@@ -41,7 +39,6 @@ import google.registry.util.CloudTasksUtils;
 import google.registry.util.EmailMessage;
 import google.registry.util.Retrier;
 import google.registry.util.SendEmailService;
-import java.time.Instant;
 import java.util.Optional;
 import javax.inject.Inject;
 import javax.mail.internet.InternetAddress;
@@ -123,23 +120,15 @@ public final class IcannReportingStagingAction implements Runnable {
             response.setPayload("Completed staging action.");
 
             logger.atInfo().log("Enqueueing report upload.");
-            Instant scheduleTime =
-                Instant.ofEpochMilli(
-                    clock
-                        .nowUtc()
-                        .plusMinutes((int) Duration.standardMinutes(2).getMillis())
-                        .getMillis());
             cloudTasksUtils.enqueue(
                 CRON_QUEUE,
-                Task.newBuilder(
-                        CloudTasksUtils.createPostTask(
-                            IcannReportingUploadAction.PATH, Service.BACKEND.toString(), null))
-                    .setScheduleTime(
-                        Timestamp.newBuilder()
-                            .setSeconds(scheduleTime.getEpochSecond())
-                            .setNanos(scheduleTime.getNano())
-                            .build())
-                    .build());
+                CloudTasksUtils.createPostTask(
+                    IcannReportingUploadAction.PATH,
+                    Service.BACKEND.toString(),
+                    null,
+                    clock,
+                    Duration.standardMinutes(2)));
+
             return null;
           },
           BigqueryJobFailureException.class);

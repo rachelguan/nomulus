@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.util.Timestamps;
 import google.registry.bigquery.BigqueryJobFailureException;
 import google.registry.reporting.icann.IcannReportingModule.ReportType;
 import google.registry.request.HttpException.BadRequestException;
@@ -39,6 +40,7 @@ import google.registry.util.SendEmailService;
 import java.util.Optional;
 import javax.mail.internet.InternetAddress;
 import org.joda.time.DateTime;
+import org.joda.time.Duration;
 import org.joda.time.YearMonth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +88,12 @@ class IcannReportingStagingActionTest {
   private void assertUploadTaskEnqueued() {
     cloudTasksHelper.assertTasksEnqueued(
         "retryable-cron-tasks",
-        new TaskMatcher().url("/_dr/task/icannReportingUpload").method(HttpMethod.POST));
+        new TaskMatcher()
+            .url("/_dr/task/icannReportingUpload")
+            .method(HttpMethod.POST)
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    action.clock.nowUtc().getMillis() + Duration.standardMinutes(2).getMillis())));
   }
 
   @Test
