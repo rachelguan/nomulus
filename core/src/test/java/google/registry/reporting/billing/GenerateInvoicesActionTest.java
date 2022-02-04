@@ -23,8 +23,10 @@ import static org.mockito.Mockito.when;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.net.MediaType;
+import com.google.protobuf.util.Timestamps;
 import google.registry.beam.BeamActionTestBase;
 import google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDatabase;
+import google.registry.reporting.ReportingModule;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
@@ -33,6 +35,7 @@ import google.registry.testing.FakeClock;
 import google.registry.testing.TestOfyAndSql;
 import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
+import org.joda.time.Duration;
 import org.joda.time.YearMonth;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -78,7 +81,12 @@ class GenerateInvoicesActionTest extends BeamActionTestBase {
             .url("/_dr/task/publishInvoices")
             .method(HttpMethod.POST)
             .param("jobId", "jobid")
-            .param("yearMonth", "2017-10"));
+            .param("yearMonth", "2017-10")
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    clock.nowUtc().getMillis()
+                        + Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
+                            .getMillis())));
   }
 
   @TestOfyAndSql

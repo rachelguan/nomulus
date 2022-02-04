@@ -25,12 +25,10 @@ import com.google.api.services.dataflow.Dataflow;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateParameter;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateRequest;
 import com.google.api.services.dataflow.model.LaunchFlexTemplateResponse;
-import com.google.cloud.tasks.v2.Task;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
-import com.google.protobuf.Timestamp;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.config.RegistryEnvironment;
 import google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDatabase;
@@ -45,7 +43,6 @@ import google.registry.request.auth.Auth;
 import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
-import java.time.Instant;
 import javax.inject.Inject;
 import org.joda.time.Duration;
 import org.joda.time.YearMonth;
@@ -152,33 +149,18 @@ public class GenerateInvoicesAction implements Runnable {
       logger.atInfo().log("Got response: %s", launchResponse.getJob().toPrettyString());
       String jobId = launchResponse.getJob().getId();
       if (shouldPublish) {
-        Instant scheduleTime =
-            Instant.ofEpochMilli(
-                clock
-                    .nowUtc()
-                    .plusMillis(
-                        (int)
-                            Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
-                                .getMillis())
-                    .getMillis());
-
         cloudTasksUtils.enqueue(
             ReportingModule.BEAM_QUEUE,
-            Task.newBuilder(
-                    CloudTasksUtils.createPostTask(
-                        PublishInvoicesAction.PATH,
-                        Service.BACKEND.toString(),
-                        ImmutableMultimap.of(
-                            ReportingModule.PARAM_JOB_ID,
-                            jobId,
-                            ReportingModule.PARAM_YEAR_MONTH,
-                            yearMonth.toString())))
-                .setScheduleTime(
-                    Timestamp.newBuilder()
-                        .setSeconds(scheduleTime.getEpochSecond())
-                        .setNanos(scheduleTime.getNano())
-                        .build())
-                .build());
+            CloudTasksUtils.createPostTask(
+                PublishInvoicesAction.PATH,
+                Service.BACKEND.toString(),
+                ImmutableMultimap.of(
+                    ReportingModule.PARAM_JOB_ID,
+                    jobId,
+                    ReportingModule.PARAM_YEAR_MONTH,
+                    yearMonth.toString()),
+                clock,
+                Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)));
       }
       response.setStatus(SC_OK);
       response.setPayload(String.format("Launched invoicing pipeline: %s", jobId));

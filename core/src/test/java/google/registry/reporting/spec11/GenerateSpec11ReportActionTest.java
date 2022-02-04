@@ -21,8 +21,10 @@ import static org.mockito.Mockito.when;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.net.MediaType;
+import com.google.protobuf.util.Timestamps;
 import google.registry.beam.BeamActionTestBase;
 import google.registry.model.common.DatabaseMigrationStateSchedule.PrimaryDatabase;
+import google.registry.reporting.ReportingModule;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
@@ -30,6 +32,7 @@ import google.registry.testing.FakeClock;
 import google.registry.util.CloudTasksUtils;
 import java.io.IOException;
 import org.joda.time.DateTime;
+import org.joda.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -96,7 +99,12 @@ class GenerateSpec11ReportActionTest extends BeamActionTestBase {
             .url("/_dr/task/publishSpec11")
             .method(HttpMethod.POST)
             .param("jobId", "jobid")
-            .param("date", "2018-06-11"));
+            .param("date", "2018-06-11")
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    clock.nowUtc().getMillis()
+                        + Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
+                            .getMillis())));
   }
 
   @Test
