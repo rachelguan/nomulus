@@ -91,6 +91,23 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
   static final String ARGS_PARAM = "args";
   static final String ID_PARAM = "id";
 
+  /**
+   * Allows task enqueueing to be disabled when executing registrar console test cases.
+   *
+   * <p>The existing workflow in UI test cases triggers task enqueueing, which was not an issue with
+   * Task Queue since it's a native App Engine feature simulated by the App Engine SDK's
+   * environment. However, with Cloud Tasks, the server enqueues and fails to deliver to the actual
+   * Cloud Tasks endpoint due to lack of permission.
+   *
+   * <p>One way to allow enqueuing in backend test and avoid enqueuing in UI test is to disable
+   * enqueuing when the test server starts and enable enqueueing once the test server stops. This
+   * can be done by utilizing a ThreadLocal<Boolean> variable IS_IN_TEST_DRIVER, which is set to
+   * false by default. Enqueuing is allowed only if the value of IS_IN_TEST_DRIVER is false. It's
+   * set to true in start() and set to false in stop() inside TestDriver.java, a class used in
+   * testing.
+   */
+  private static ThreadLocal<Boolean> isInTestDriver = ThreadLocal.withInitial(() -> false);
+
   @Inject JsonActionRunner jsonActionRunner;
   @Inject AppEngineServiceUtils appEngineServiceUtils;
   @Inject RegistrarConsoleMetrics registrarConsoleMetrics;
@@ -104,6 +121,14 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
 
   private static boolean hasPhone(RegistrarContact contact) {
     return contact.getPhoneNumber() != null;
+  }
+
+  public static void setIsInTestDriverToFalse() {
+    isInTestDriver.set(false);
+  }
+
+  public static void setIsInTestDriverToTrue() {
+    isInTestDriver.set(true);
   }
 
   @Override
@@ -599,10 +624,12 @@ public class RegistrarSettingsAction implements Runnable, JsonActionRunner.JsonA
       return;
     }
     // Enqueues a sync registrar sheet task targeting the App Engine service specified by hostname.
-    cloudTasksUtils.enqueue(
-        SyncRegistrarsSheetAction.QUEUE,
-        CloudTasksUtils.createGetTask(
-            SyncRegistrarsSheetAction.PATH, Service.BACKEND.toString(), ImmutableMultimap.of()));
+    if (isInTestDriver.get() == false) {
+      cloudTasksUtils.enqueue(
+          SyncRegistrarsSheetAction.QUEUE,
+          CloudTasksUtils.createGetTask(
+              SyncRegistrarsSheetAction.PATH, Service.BACKEND.toString(), ImmutableMultimap.of()));
+    }
     String environment = Ascii.toLowerCase(String.valueOf(RegistryEnvironment.get()));
     sendEmailUtils.sendEmail(
         String.format(
