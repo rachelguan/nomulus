@@ -84,9 +84,10 @@ class GenerateInvoicesActionTest extends BeamActionTestBase {
             .param("yearMonth", "2017-10")
             .scheduleTime(
                 Timestamps.fromMillis(
-                    clock.nowUtc().getMillis()
-                        + Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
-                            .getMillis())));
+                    clock
+                        .nowUtc()
+                        .plus(Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES))
+                        .getMillis())));
   }
 
   @TestOfyAndSql

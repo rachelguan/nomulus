@@ -102,9 +102,10 @@ class GenerateSpec11ReportActionTest extends BeamActionTestBase {
             .param("date", "2018-06-11")
             .scheduleTime(
                 Timestamps.fromMillis(
-                    clock.nowUtc().getMillis()
-                        + Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES)
-                            .getMillis())));
+                    clock
+                        .nowUtc()
+                        .plus(Duration.standardMinutes(ReportingModule.ENQUEUE_DELAY_MINUTES))
+                        .getMillis())));
   }
 
   @Test
