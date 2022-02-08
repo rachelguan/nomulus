@@ -349,6 +349,9 @@ public class LoadTestAction implements Runnable {
                       .toBuilder()
                       .getAppEngineHttpRequest()
                       .toBuilder()
+                      // instead of adding the X_CSRF_TOKEN to params, this remains as part of
+                      // headers because of the existing setup for authentication in {@link
+                      // google.registry.request.auth.LegacyAuthenticationMechanism}
                       .putHeaders(X_CSRF_TOKEN, xsrfToken)
                       .build())
               .setScheduleTime(
