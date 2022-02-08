@@ -158,14 +158,12 @@ public class UploadDatastoreBackupAction implements Runnable {
                       UpdateSnapshotViewAction.UPDATE_SNAPSHOT_VIEWNAME_PARAM,
                       LATEST_BACKUP_VIEW_NAME)));
 
-      // TODO(rachelguan): replace it with schedule time helper once that PR gets merged
       Instant scheduleTime =
           Instant.ofEpochMilli(
               clock
                   .nowUtc()
                   .plusMillis((int) BigqueryPollJobAction.POLL_COUNTDOWN.getMillis())
                   .getMillis());
-
       // Enqueues a task to poll for the success or failure of the referenced BigQuery job and to
       // launch the provided task in the specified queue if the job succeeds.
       cloudTasksUtils.enqueue(

@@ -35,6 +35,7 @@ import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.util.Timestamps;
 import google.registry.bigquery.CheckedBigquery;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.testing.AppEngineExtension;
@@ -142,17 +143,26 @@ public class UploadDatastoreBackupActionTest {
             .method(HttpMethod.POST)
             .header(PROJECT_ID_HEADER, "Project-Id")
             .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-one")
-            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE),
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE)
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    action.clock.nowUtc().plus(BigqueryPollJobAction.POLL_COUNTDOWN).getMillis())),
         new TaskMatcher()
             .method(HttpMethod.POST)
             .header(PROJECT_ID_HEADER, "Project-Id")
             .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-two")
-            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE),
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE)
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    action.clock.nowUtc().plus(BigqueryPollJobAction.POLL_COUNTDOWN).getMillis())),
         new TaskMatcher()
             .method(HttpMethod.POST)
             .header(PROJECT_ID_HEADER, "Project-Id")
             .header(JOB_ID_HEADER, "load-backup-2018_12_05T17_46_39_92612-three")
-            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE));
+            .header(CHAINED_TASK_QUEUE_HEADER, UpdateSnapshotViewAction.QUEUE)
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    action.clock.nowUtc().plus(BigqueryPollJobAction.POLL_COUNTDOWN).getMillis())));
   }
 
   @Test

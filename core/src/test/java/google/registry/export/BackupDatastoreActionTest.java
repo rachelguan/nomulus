@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.base.Joiner;
+import com.google.protobuf.util.Timestamps;
 import google.registry.export.datastore.DatastoreAdmin;
 import google.registry.export.datastore.DatastoreAdmin.Export;
 import google.registry.export.datastore.Operation;
@@ -78,7 +79,10 @@ public class BackupDatastoreActionTest {
             .param(
                 CHECK_BACKUP_KINDS_TO_LOAD_PARAM,
                 Joiner.on(",").join(AnnotatedEntities.getReportingKinds()))
-            .method(HttpMethod.POST));
+            .method(HttpMethod.POST)
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    action.clock.nowUtc().plus(CheckBackupAction.POLL_COUNTDOWN).getMillis())));
     assertThat(response.getPayload())
         .isEqualTo(
             "Datastore backup started with name: "
