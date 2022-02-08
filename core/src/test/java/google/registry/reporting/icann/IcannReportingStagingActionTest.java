@@ -93,7 +93,7 @@ class IcannReportingStagingActionTest {
             .method(HttpMethod.POST)
             .scheduleTime(
                 Timestamps.fromMillis(
-                    action.clock.nowUtc().getMillis() + Duration.standardMinutes(2).getMillis())));
+                    action.clock.nowUtc().plus(Duration.standardMinutes(2)).getMillis())));
   }
 
   @Test

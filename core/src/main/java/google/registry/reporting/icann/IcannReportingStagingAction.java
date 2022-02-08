@@ -115,6 +115,7 @@ public final class IcannReportingStagingAction implements Runnable {
                     .addRecipient(recipient)
                     .setFrom(sender)
                     .build());
+
             response.setStatus(SC_OK);
             response.setContentType(MediaType.PLAIN_TEXT_UTF_8);
             response.setPayload("Completed staging action.");
@@ -128,7 +129,6 @@ public final class IcannReportingStagingAction implements Runnable {
                     null,
                     clock,
                     Duration.standardMinutes(2)));
-
             return null;
           },
           BigqueryJobFailureException.class);
