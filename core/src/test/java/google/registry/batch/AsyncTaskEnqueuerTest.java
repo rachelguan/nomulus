@@ -143,38 +143,6 @@ public class AsyncTaskEnqueuerTest {
     assertLogMessage(logHandler, Level.INFO, "Ignoring async re-save");
   }
 
-  @Test
-  void testEnqueueRelock() {
-    RegistryLock lock =
-        saveRegistryLock(
-            new RegistryLock.Builder()
-                .setLockCompletionTime(clock.nowUtc())
-                .setUnlockRequestTime(clock.nowUtc())
-                .setUnlockCompletionTime(clock.nowUtc())
-                .isSuperuser(false)
-                .setDomainName("example.tld")
-                .setRepoId("repoId")
-                .setRelockDuration(standardHours(6))
-                .setRegistrarId("TheRegistrar")
-                .setRegistrarPocId("someone@example.com")
-                .setVerificationCode("hi")
-                .build());
-    asyncTaskEnqueuer.enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0);
-    assertTasksEnqueued(
-        QUEUE_ASYNC_ACTIONS,
-        new TaskMatcher()
-            .url(RelockDomainAction.PATH)
-            .method("POST")
-            .header("Host", "backend.hostname.fake")
-            .param(
-                RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
-                String.valueOf(lock.getRevisionId()))
-            .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
-            .etaDelta(
-                standardHours(6).minus(standardSeconds(30)),
-                standardHours(6).plus(standardSeconds(30))));
-  }
-
   @MockitoSettings(strictness = Strictness.LENIENT)
   @Test
   void testFailure_enqueueRelock_noDuration() {

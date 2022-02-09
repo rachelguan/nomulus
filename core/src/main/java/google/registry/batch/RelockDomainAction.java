@@ -16,6 +16,7 @@ package google.registry.batch;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_ACTIONS;
 import static google.registry.persistence.transaction.TransactionManagerFactory.jpaTm;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 import static google.registry.request.Action.Method.POST;
@@ -23,6 +24,7 @@ import static google.registry.tools.LockOrUnlockDomainCommand.REGISTRY_LOCK_STAT
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.FluentLogger;
 import com.google.common.net.MediaType;
@@ -35,10 +37,13 @@ import google.registry.model.registrar.RegistrarContact;
 import google.registry.model.tld.RegistryLockDao;
 import google.registry.persistence.VKey;
 import google.registry.request.Action;
+import google.registry.request.Action.Service;
 import google.registry.request.Parameter;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.tools.DomainLockUtils;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.DateTimeUtils;
 import google.registry.util.EmailMessage;
 import google.registry.util.SendEmailService;
@@ -88,7 +93,8 @@ public class RelockDomainAction implements Runnable {
   private final SendEmailService sendEmailService;
   private final DomainLockUtils domainLockUtils;
   private final Response response;
-  private final AsyncTaskEnqueuer asyncTaskEnqueuer;
+  private Clock clock;
+  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   public RelockDomainAction(
@@ -100,7 +106,8 @@ public class RelockDomainAction implements Runnable {
       SendEmailService sendEmailService,
       DomainLockUtils domainLockUtils,
       Response response,
-      AsyncTaskEnqueuer asyncTaskEnqueuer) {
+      Clock clock,
+      CloudTasksUtils cloudTasksUtils) {
     this.oldUnlockRevisionId = oldUnlockRevisionId;
     this.previousAttempts = previousAttempts;
     this.alertRecipientAddress = alertRecipientAddress;
@@ -109,7 +116,8 @@ public class RelockDomainAction implements Runnable {
     this.sendEmailService = sendEmailService;
     this.domainLockUtils = domainLockUtils;
     this.response = response;
-    this.asyncTaskEnqueuer = asyncTaskEnqueuer;
+    this.clock = clock;
+    this.cloudTasksUtils = cloudTasksUtils;
   }
 
   @Override
@@ -245,8 +253,7 @@ public class RelockDomainAction implements Runnable {
       }
     }
     Duration timeBeforeRetry = previousAttempts < ATTEMPTS_BEFORE_SLOWDOWN ? TEN_MINUTES : ONE_HOUR;
-    asyncTaskEnqueuer.enqueueDomainRelock(
-        timeBeforeRetry, oldUnlockRevisionId, previousAttempts + 1);
+    enqueueDomainRelock(timeBeforeRetry, oldUnlockRevisionId, previousAttempts + 1);
   }
 
   private void sendSuccessEmail(RegistryLock oldLock) {
@@ -317,5 +324,21 @@ public class RelockDomainAction implements Runnable {
       }
     }
     return builder.build();
+  }
+
+  /** Enqueues a task to asynchronously re-lock a registry-locked domain after it was unlocked. */
+  void enqueueDomainRelock(Duration countdown, long lockRevisionId, int previousAttempts) {
+    cloudTasksUtils.enqueue(
+        QUEUE_ASYNC_ACTIONS,
+        CloudTasksUtils.createPostTask(
+            RelockDomainAction.PATH,
+            Service.BACKEND.toString(),
+            ImmutableMultimap.of(
+                RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
+                String.valueOf(lockRevisionId),
+                RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM,
+                String.valueOf(previousAttempts)),
+            clock,
+            countdown));
   }
 }

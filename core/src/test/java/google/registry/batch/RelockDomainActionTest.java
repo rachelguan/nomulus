@@ -28,27 +28,31 @@ import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.SqlHelper.getMostRecentVerifiedRegistryLockByRepoId;
 import static google.registry.testing.SqlHelper.getRegistryLockByVerificationCode;
 import static google.registry.testing.SqlHelper.saveRegistryLock;
-import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static google.registry.tools.LockOrUnlockDomainCommand.REGISTRY_LOCK_STATUSES;
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static org.joda.time.Duration.standardHours;
 import static org.joda.time.Duration.standardSeconds;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.RegistryLock;
 import google.registry.model.host.HostResource;
+import google.registry.reporting.ReportingModule;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.DeterministicStringGenerator;
 import google.registry.testing.DualDatabaseTest;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeResponse;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
 import google.registry.testing.TestOfyAndSql;
 import google.registry.testing.UserInfo;
 import google.registry.tools.DomainLockUtils;
@@ -62,6 +66,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
@@ -96,8 +101,8 @@ public class RelockDomainActionTest {
   private DomainBase domain;
   private RegistryLock oldLock;
   @Mock private SendEmailService sendEmailService;
-  private AsyncTaskEnqueuer asyncTaskEnqueuer;
   private RelockDomainAction action;
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   void beforeEach() throws Exception {
@@ -118,8 +123,6 @@ public class RelockDomainActionTest {
         .when(appEngineServiceUtils.getServiceHostname("backend"))
         .thenReturn("backend.hostname.fake");
 
-    asyncTaskEnqueuer =
-        AsyncTaskEnqueuerTest.createForTesting(appEngineServiceUtils, clock, Duration.ZERO);
     action = createAction(oldLock.getRevisionId());
   }
 
@@ -158,7 +161,7 @@ public class RelockDomainActionTest {
     assertThat(response.getPayload())
         .isEqualTo(String.format("Re-lock failed: %s", expectedFailureMessage));
     assertNonTransientFailureEmail(expectedFailureMessage);
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -170,7 +173,7 @@ public class RelockDomainActionTest {
     assertThat(response.getPayload())
         .isEqualTo(String.format("Re-lock failed: %s", expectedFailureMessage));
     assertNonTransientFailureEmail(expectedFailureMessage);
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -180,7 +183,7 @@ public class RelockDomainActionTest {
     assertThat(response.getStatus()).isEqualTo(SC_NO_CONTENT);
     assertThat(response.getPayload())
         .isEqualTo("Domain example.tld is already manually re-locked, skipping automated re-lock.");
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -192,7 +195,7 @@ public class RelockDomainActionTest {
     assertThat(response.getPayload())
         .isEqualTo(String.format("Re-lock failed: %s", expectedFailureMessage));
     assertNonTransientFailureEmail(expectedFailureMessage);
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -207,7 +210,7 @@ public class RelockDomainActionTest {
     assertThat(response.getPayload())
         .isEqualTo(String.format("Re-lock failed: %s", expectedFailureMessage));
     assertNonTransientFailureEmail(expectedFailureMessage);
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -253,7 +256,7 @@ public class RelockDomainActionTest {
     assertThat(response.getStatus()).isEqualTo(SC_NO_CONTENT);
     assertThat(response.getPayload())
         .isEqualTo("Domain example.tld is already manually re-locked, skipping automated re-lock.");
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
   }
 
   @TestOfyAndSql
@@ -265,6 +268,37 @@ public class RelockDomainActionTest {
         RelockDomainAction.ATTEMPTS_BEFORE_SLOWDOWN + 1,
         oldLock.getRevisionId(),
         Duration.standardHours(1));
+  }
+
+  @TestOfyAndSql
+  void testEnqueueRelock() {
+    RegistryLock lock =
+        saveRegistryLock(
+            new RegistryLock.Builder()
+                .setLockCompletionTime(clock.nowUtc())
+                .setUnlockRequestTime(clock.nowUtc())
+                .setUnlockCompletionTime(clock.nowUtc())
+                .isSuperuser(false)
+                .setDomainName("example.tld")
+                .setRepoId("repoId")
+                .setRelockDuration(standardHours(6))
+                .setRegistrarId("TheRegistrar")
+                .setRegistrarPocId("someone@example.com")
+                .setVerificationCode("hi")
+                .build());
+    action.enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0);
+    cloudTasksHelper.assertTasksEnqueued(
+        QUEUE_ASYNC_ACTIONS,
+        new CloudTasksHelper.TaskMatcher()
+            .url(RelockDomainAction.PATH)
+            .method(HttpMethod.POST)
+            .param(
+                RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
+                String.valueOf(lock.getRevisionId()))
+            .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
+            .scheduleTime(Timestamps.fromMillis(clock
+                    .nowUtc()
+                    .plus(lock.getRelockDuration().get()).getMillis())));
   }
 
   private void assertSuccessEmailSent() throws Exception {
@@ -320,17 +354,18 @@ public class RelockDomainActionTest {
   }
 
   private void assertTaskEnqueued(int numAttempts, long oldUnlockRevisionId, Duration duration) {
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
         new TaskMatcher()
             .url(RelockDomainAction.PATH)
-            .method("POST")
-            .header("Host", "backend.hostname.fake")
+            .method(HttpMethod.POST)
             .param(
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(oldUnlockRevisionId))
             .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, String.valueOf(numAttempts))
-            .etaDelta(duration.minus(standardSeconds(30)), duration.plus(standardSeconds(30))));
+            .scheduleTime(Timestamps.fromMillis(clock
+                .nowUtc()
+                .plus(duration).getMillis())));
   }
 
   private RelockDomainAction createAction(Long oldUnlockRevisionId) throws Exception {
@@ -350,6 +385,7 @@ public class RelockDomainActionTest {
         sendEmailService,
         domainLockUtils,
         response,
-        asyncTaskEnqueuer);
+        clock,
+        cloudTasksHelper.getTestCloudTasksUtils());
   }
 }
