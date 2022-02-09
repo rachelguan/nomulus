@@ -32,7 +32,6 @@ import static google.registry.tools.LockOrUnlockDomainCommand.REGISTRY_LOCK_STAT
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.joda.time.Duration.standardHours;
-import static org.joda.time.Duration.standardSeconds;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -40,12 +39,10 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.RegistryLock;
 import google.registry.model.host.HostResource;
-import google.registry.reporting.ReportingModule;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
@@ -66,7 +63,6 @@ import org.joda.time.DateTime;
 import org.joda.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
@@ -84,11 +80,7 @@ public class RelockDomainActionTest {
   private final FakeResponse response = new FakeResponse();
   private final FakeClock clock = new FakeClock(DateTime.parse("2015-05-18T12:34:56Z"));
   private final DomainLockUtils domainLockUtils =
-      new DomainLockUtils(
-          new DeterministicStringGenerator(Alphabets.BASE_58),
-          "adminreg",
-          AsyncTaskEnqueuerTest.createForTesting(
-              mock(AppEngineServiceUtils.class), clock, Duration.ZERO));
+      new DomainLockUtils(new DeterministicStringGenerator(Alphabets.BASE_58), "adminreg", clock);
 
   @RegisterExtension
   public final AppEngineExtension appEngineExtension =
@@ -115,7 +107,11 @@ public class RelockDomainActionTest {
         .containsAtLeastElementsIn(REGISTRY_LOCK_STATUSES);
     oldLock =
         domainLockUtils.administrativelyApplyUnlock(
-            DOMAIN_NAME, CLIENT_ID, false, Optional.empty());
+            DOMAIN_NAME,
+            CLIENT_ID,
+            false,
+            Optional.empty(),
+            cloudTasksHelper.getTestCloudTasksUtils());
     assertThat(loadByEntity(domain).getStatusValues()).containsNoneIn(REGISTRY_LOCK_STATUSES);
 
     AppEngineServiceUtils appEngineServiceUtils = mock(AppEngineServiceUtils.class);
@@ -286,7 +282,11 @@ public class RelockDomainActionTest {
                 .setRegistrarPocId("someone@example.com")
                 .setVerificationCode("hi")
                 .build());
-    action.enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0);
+    domainLockUtils.enqueueDomainRelock(
+        lock.getRelockDuration().get(),
+        lock.getRevisionId(),
+        0,
+        cloudTasksHelper.getTestCloudTasksUtils());
     cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
         new CloudTasksHelper.TaskMatcher()
@@ -296,9 +296,9 @@ public class RelockDomainActionTest {
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(lock.getRevisionId()))
             .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
-            .scheduleTime(Timestamps.fromMillis(clock
-                    .nowUtc()
-                    .plus(lock.getRelockDuration().get()).getMillis())));
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    clock.nowUtc().plus(lock.getRelockDuration().get()).getMillis())));
   }
 
   private void assertSuccessEmailSent() throws Exception {
@@ -363,9 +363,7 @@ public class RelockDomainActionTest {
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(oldUnlockRevisionId))
             .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, String.valueOf(numAttempts))
-            .scheduleTime(Timestamps.fromMillis(clock
-                .nowUtc()
-                .plus(duration).getMillis())));
+            .scheduleTime(Timestamps.fromMillis(clock.nowUtc().plus(duration).getMillis())));
   }
 
   private RelockDomainAction createAction(Long oldUnlockRevisionId) throws Exception {
@@ -384,8 +382,7 @@ public class RelockDomainActionTest {
         "support@example.com",
         sendEmailService,
         domainLockUtils,
-        response,
-        clock,
-        cloudTasksHelper.getTestCloudTasksUtils());
+        cloudTasksHelper.getTestCloudTasksUtils(),
+        response);
   }
 }

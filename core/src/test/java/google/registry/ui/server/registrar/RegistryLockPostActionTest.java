@@ -26,7 +26,6 @@ import static google.registry.testing.SqlHelper.getRegistryLockByVerificationCod
 import static google.registry.testing.SqlHelper.saveRegistryLock;
 import static google.registry.tools.LockOrUnlockDomainCommand.REGISTRY_LOCK_STATUSES;
 import static google.registry.ui.server.registrar.RegistryLockGetActionTest.userFromRegistrarContact;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -35,7 +34,6 @@ import com.google.appengine.api.users.User;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import google.registry.batch.AsyncTaskEnqueuerTest;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.RegistryLock;
 import google.registry.request.JsonActionRunner;
@@ -50,7 +48,6 @@ import google.registry.testing.AppEngineExtension;
 import google.registry.testing.DeterministicStringGenerator;
 import google.registry.testing.FakeClock;
 import google.registry.tools.DomainLockUtils;
-import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.EmailMessage;
 import google.registry.util.SendEmailService;
 import google.registry.util.StringGenerator.Alphabets;
@@ -466,11 +463,7 @@ final class RegistryLockPostActionTest {
     JsonActionRunner jsonActionRunner =
         new JsonActionRunner(ImmutableMap.of(), new JsonResponse(new ResponseImpl(mockResponse)));
     DomainLockUtils domainLockUtils =
-        new DomainLockUtils(
-            new DeterministicStringGenerator(Alphabets.BASE_58),
-            "adminreg",
-            AsyncTaskEnqueuerTest.createForTesting(
-                mock(AppEngineServiceUtils.class), clock, Duration.ZERO));
+        new DomainLockUtils(new DeterministicStringGenerator(Alphabets.BASE_58), "adminreg", clock);
     return new RegistryLockPostAction(
         mockRequest,
         jsonActionRunner,
