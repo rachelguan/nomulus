@@ -26,7 +26,6 @@ import google.registry.bigquery.CheckedBigquery;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.model.annotations.DeleteAfterMigration;
 import google.registry.request.Action;
-import google.registry.request.Action.Service;
 import google.registry.request.HttpException.InternalServerErrorException;
 import google.registry.request.Parameter;
 import google.registry.request.auth.Auth;
@@ -56,8 +55,6 @@ public class UpdateSnapshotViewAction implements Runnable {
   static final String QUEUE = "export-snapshot-update-view"; // See queue.xml.
 
   static final String PATH = "/_dr/task/updateSnapshotView"; // See web.xml.
-
-  static final String SERVICE = Service.BACKEND.toString();
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 

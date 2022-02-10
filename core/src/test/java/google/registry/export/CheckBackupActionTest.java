@@ -54,7 +54,6 @@ public class CheckBackupActionTest {
 
   private static final DateTime START_TIME = DateTime.parse("2014-08-01T01:02:03Z");
   private static final DateTime COMPLETE_TIME = START_TIME.plus(Duration.standardMinutes(30));
-  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
   private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
   @RegisterExtension
@@ -68,6 +67,7 @@ public class CheckBackupActionTest {
   private final FakeResponse response = new FakeResponse();
   private final FakeClock clock = new FakeClock(COMPLETE_TIME.plusMillis(1000));
   private final CheckBackupAction action = new CheckBackupAction();
+  private final CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   void beforeEach() throws Exception {

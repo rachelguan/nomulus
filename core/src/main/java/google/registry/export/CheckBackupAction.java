@@ -59,7 +59,6 @@ import org.joda.time.format.PeriodFormat;
     method = {POST, GET},
     automaticallyPrintOk = true,
     auth = Auth.AUTH_INTERNAL_OR_ADMIN)
-
 @DeleteAfterMigration
 public class CheckBackupAction implements Runnable {
 
@@ -71,7 +70,6 @@ public class CheckBackupAction implements Runnable {
   /** Action-specific details needed for enqueuing tasks against itself. */
   static final String QUEUE = "export-snapshot-poll"; // See queue.xml.
 
-  static final String SERVICE = Service.BACKEND.toString();
   static final String PATH = "/_dr/task/checkDatastoreBackup"; // See web.xml.
   static final Duration POLL_COUNTDOWN = Duration.standardMinutes(2);
 
@@ -83,6 +81,7 @@ public class CheckBackupAction implements Runnable {
   @Inject DatastoreAdmin datastoreAdmin;
   @Inject Clock clock;
   @Inject Response response;
+  @Inject CloudTasksUtils cloudTasksUtils;
   @Inject @RequestMethod Action.Method requestMethod;
 
   @Inject
@@ -92,8 +91,6 @@ public class CheckBackupAction implements Runnable {
   @Inject
   @Parameter(CHECK_BACKUP_KINDS_TO_LOAD_PARAM)
   String kindsToLoadParam;
-
-  @Inject CloudTasksUtils cloudTasksUtils;
 
   @Inject
   CheckBackupAction() {}
@@ -180,9 +177,9 @@ public class CheckBackupAction implements Runnable {
       /** Enqueue a task for starting a backup load. */
       cloudTasksUtils.enqueue(
           UploadDatastoreBackupAction.QUEUE,
-          CloudTasksUtils.createPostTask(
+          cloudTasksUtils.createPostTask(
               UploadDatastoreBackupAction.PATH,
-              UploadDatastoreBackupAction.SERVICE,
+              Service.BACKEND.toString(),
               ImmutableMultimap.of(
                   UploadDatastoreBackupAction.UPLOAD_BACKUP_ID_PARAM,
                   backupId,
@@ -190,7 +187,6 @@ public class CheckBackupAction implements Runnable {
                   backup.getExportFolderUrl(),
                   UploadDatastoreBackupAction.UPLOAD_BACKUP_KINDS_PARAM,
                   Joiner.on(',').join(exportedKindsToLoad))));
-
       message += "BigQuery load task enqueued.";
     }
     logger.atInfo().log(message);

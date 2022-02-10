@@ -65,9 +65,7 @@ public class BigqueryPollJobAction implements Runnable {
   @Inject @Header(CHAINED_TASK_QUEUE_HEADER) Lazy<String> chainedQueueName;
   @Inject @Header(PROJECT_ID_HEADER) String projectId;
   @Inject @Header(JOB_ID_HEADER) String jobId;
-
   @Inject @Payload byte[] payload;
-
   @Inject BigqueryPollJobAction() {}
 
   @Override

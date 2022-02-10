@@ -33,7 +33,7 @@ import com.google.common.flogger.FluentLogger;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import google.registry.bigquery.BigqueryUtils.SourceFormat;
 import google.registry.bigquery.BigqueryUtils.WriteDisposition;
 import google.registry.bigquery.CheckedBigquery;
@@ -50,7 +50,6 @@ import google.registry.util.CloudTasksUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.time.Instant;
 import javax.inject.Inject;
 
 /** Action to load a Datastore backup from Google Cloud Storage into BigQuery. */
@@ -77,13 +76,11 @@ public class UploadDatastoreBackupAction implements Runnable {
 
   static final String PATH = "/_dr/task/uploadDatastoreBackup"; // See web.xml.
 
-  static final String SERVICE = Service.BACKEND.toString();
-
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Inject CheckedBigquery checkedBigquery;
-
   @Inject CloudTasksUtils cloudTasksUtils;
+  @Inject Clock clock;
 
   @Inject @Config("projectId") String projectId;
 
@@ -98,8 +95,6 @@ public class UploadDatastoreBackupAction implements Runnable {
   @Inject
   @Parameter(UPLOAD_BACKUP_KINDS_PARAM)
   String backupKinds;
-
-  @Inject Clock clock;
 
   @Inject
   UploadDatastoreBackupAction() {}
@@ -145,9 +140,9 @@ public class UploadDatastoreBackupAction implements Runnable {
       ByteArrayOutputStream taskBytes = new ByteArrayOutputStream();
       new ObjectOutputStream(taskBytes)
           .writeObject(
-              CloudTasksUtils.createPostTask(
+              cloudTasksUtils.createPostTask(
                   UpdateSnapshotViewAction.PATH,
-                  UpdateSnapshotViewAction.SERVICE,
+                  Service.BACKEND.toString(),
                   ImmutableMultimap.of(
                       UpdateSnapshotViewAction.UPDATE_SNAPSHOT_DATASET_ID_PARAM,
                       BACKUP_DATASET,
@@ -158,20 +153,14 @@ public class UploadDatastoreBackupAction implements Runnable {
                       UpdateSnapshotViewAction.UPDATE_SNAPSHOT_VIEWNAME_PARAM,
                       LATEST_BACKUP_VIEW_NAME)));
 
-      Instant scheduleTime =
-          Instant.ofEpochMilli(
-              clock
-                  .nowUtc()
-                  .plusMillis((int) BigqueryPollJobAction.POLL_COUNTDOWN.getMillis())
-                  .getMillis());
       // Enqueues a task to poll for the success or failure of the referenced BigQuery job and to
       // launch the provided task in the specified queue if the job succeeds.
       cloudTasksUtils.enqueue(
           BigqueryPollJobAction.QUEUE,
           Task.newBuilder()
               .setAppEngineHttpRequest(
-                  CloudTasksUtils.createPostTask(
-                          BigqueryPollJobAction.PATH, Service.BACKEND.toString(), null)
+                  cloudTasksUtils
+                      .createPostTask(BigqueryPollJobAction.PATH, Service.BACKEND.toString(), null)
                       .getAppEngineHttpRequest()
                       .toBuilder()
                       .putHeaders(BigqueryPollJobAction.PROJECT_ID_HEADER, jobRef.getProjectId())
@@ -184,10 +173,8 @@ public class UploadDatastoreBackupAction implements Runnable {
                       .setBody(ByteString.copyFrom(taskBytes.toByteArray()))
                       .build())
               .setScheduleTime(
-                  Timestamp.newBuilder()
-                      .setSeconds(scheduleTime.getEpochSecond())
-                      .setNanos(scheduleTime.getNano())
-                      .build())
+                  Timestamps.fromMillis(
+                      clock.nowUtc().plus(BigqueryPollJobAction.POLL_COUNTDOWN).getMillis()))
               .build());
 
       builder.append(String.format(" - %s:%s\n", projectId, jobId));
