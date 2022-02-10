@@ -14,8 +14,14 @@
 
 package google.registry.flows.domain;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static google.registry.batch.AsyncTaskEnqueuer.MAX_ASYNC_ETA;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_REQUESTED_TIME;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_RESAVE_TIMES;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_RESOURCE_KEY;
+import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_ACTIONS;
 import static google.registry.flows.FlowUtils.createHistoryKey;
 import static google.registry.flows.FlowUtils.persistEntityChanges;
 import static google.registry.flows.FlowUtils.validateRegistrarIsLoggedIn;
@@ -39,13 +45,18 @@ import static google.registry.persistence.transaction.TransactionManagerFactory.
 import static google.registry.pricing.PricingEngineProxy.getDomainRenewCost;
 import static google.registry.util.CollectionUtils.nullToEmpty;
 import static google.registry.util.CollectionUtils.union;
+import static google.registry.util.DateTimeUtils.isBeforeOrAt;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.FluentLogger;
 import com.googlecode.objectify.Key;
-import google.registry.batch.AsyncTaskEnqueuer;
+import google.registry.batch.ResaveEntityAction;
 import google.registry.dns.DnsQueue;
 import google.registry.flows.EppException;
 import google.registry.flows.EppException.AssociationProhibitsOperationException;
@@ -91,6 +102,10 @@ import google.registry.model.reporting.IcannReportingTypes.ActivityReportField;
 import google.registry.model.tld.Registry;
 import google.registry.model.tld.Registry.TldType;
 import google.registry.model.transfer.TransferStatus;
+import google.registry.persistence.VKey;
+import google.registry.request.Action.Service;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
@@ -121,6 +136,7 @@ public final class DomainDeleteFlow implements TransactionalFlow {
       StatusValue.CLIENT_DELETE_PROHIBITED,
       StatusValue.PENDING_DELETE,
       StatusValue.SERVER_DELETE_PROHIBITED);
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Inject ExtensionManager extensionManager;
   @Inject EppInput eppInput;
@@ -132,9 +148,11 @@ public final class DomainDeleteFlow implements TransactionalFlow {
   @Inject DomainHistory.Builder historyBuilder;
   @Inject DnsQueue dnsQueue;
   @Inject Trid trid;
-  @Inject AsyncTaskEnqueuer asyncTaskEnqueuer;
   @Inject EppResponse.Builder responseBuilder;
   @Inject DomainDeleteFlowCustomLogic flowCustomLogic;
+  @Inject CloudTasksUtils cloudTasksUtils;
+  @Inject Clock clock;
+
   @Inject DomainDeleteFlow() {}
 
   @Override
@@ -188,7 +206,7 @@ public final class DomainDeleteFlow implements TransactionalFlow {
       builder.setDeletionTime(now).setStatusValues(null);
     } else {
       DateTime redemptionTime = now.plus(redemptionGracePeriodLength);
-      asyncTaskEnqueuer.enqueueAsyncResave(
+      enqueueAsyncResave(
           existingDomain.createVKey(), now, ImmutableSortedSet.of(redemptionTime, deletionTime));
       builder
           .setDeletionTime(deletionTime)
@@ -434,5 +452,29 @@ public final class DomainDeleteFlow implements TransactionalFlow {
     public DomainToDeleteHasHostsException() {
       super("Domain to be deleted has subordinate hosts");
     }
+  }
+
+  private void enqueueAsyncResave(
+      VKey<?> entityKey, DateTime now, ImmutableSortedSet<DateTime> whenToResave) {
+    DateTime firstResave = whenToResave.first();
+    checkArgument(isBeforeOrAt(now, firstResave), "Can't enqueue a resave " + "to run in the past");
+    Duration etaDuration = new Duration(now, firstResave);
+    if (etaDuration.isLongerThan(MAX_ASYNC_ETA)) {
+      logger.atInfo().log(
+          "Ignoring async re-save of %s; %s is past the ETA threshold of %s.",
+          entityKey, firstResave, MAX_ASYNC_ETA);
+      return;
+    }
+    Multimap<String, String> params = ArrayListMultimap.create();
+    params.put(PARAM_RESOURCE_KEY, entityKey.stringify());
+    params.put(PARAM_REQUESTED_TIME, now.toString());
+    if (whenToResave.size() > 1) {
+      params.put(PARAM_RESAVE_TIMES, Joiner.on(',').join(whenToResave.tailSet(firstResave, false)));
+    }
+    logger.atInfo().log("Enqueuing async re-save of %s to run at %s.", entityKey, whenToResave);
+    cloudTasksUtils.enqueue(
+        QUEUE_ASYNC_ACTIONS,
+        CloudTasksUtils.createPostTask(
+            ResaveEntityAction.PATH, Service.BACKEND.toString(), params, clock, etaDuration));
   }
 }

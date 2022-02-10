@@ -14,6 +14,12 @@
 
 package google.registry.flows.domain;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static google.registry.batch.AsyncTaskEnqueuer.MAX_ASYNC_ETA;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_REQUESTED_TIME;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_RESAVE_TIMES;
+import static google.registry.batch.AsyncTaskEnqueuer.PARAM_RESOURCE_KEY;
+import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_ACTIONS;
 import static google.registry.flows.FlowUtils.createHistoryKey;
 import static google.registry.flows.FlowUtils.validateRegistrarIsLoggedIn;
 import static google.registry.flows.ResourceFlowUtils.computeExDateForApprovalTime;
@@ -34,11 +40,18 @@ import static google.registry.flows.domain.DomainTransferUtils.createTransferSer
 import static google.registry.model.eppoutput.Result.Code.SUCCESS_WITH_ACTION_PENDING;
 import static google.registry.model.reporting.HistoryEntry.Type.DOMAIN_TRANSFER_REQUEST;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
+import static google.registry.util.DateTimeUtils.isBeforeOrAt;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Multimap;
+import com.google.common.flogger.FluentLogger;
 import com.googlecode.objectify.Key;
 import google.registry.batch.AsyncTaskEnqueuer;
+import google.registry.batch.ResaveEntityAction;
 import google.registry.flows.EppException;
 import google.registry.flows.ExtensionManager;
 import google.registry.flows.FlowModule.RegistrarId;
@@ -74,9 +87,14 @@ import google.registry.model.transfer.DomainTransferData;
 import google.registry.model.transfer.TransferData.TransferServerApproveEntity;
 import google.registry.model.transfer.TransferResponse.DomainTransferResponse;
 import google.registry.model.transfer.TransferStatus;
+import google.registry.persistence.VKey;
+import google.registry.request.Action.Service;
+import google.registry.util.Clock;
+import google.registry.util.CloudTasksUtils;
 import java.util.Optional;
 import javax.inject.Inject;
 import org.joda.time.DateTime;
+import org.joda.time.Duration;
 
 /**
  * An EPP flow that requests a transfer on a domain.
@@ -123,6 +141,7 @@ public final class DomainTransferRequestFlow implements TransactionalFlow {
       StatusValue.CLIENT_TRANSFER_PROHIBITED,
       StatusValue.PENDING_DELETE,
       StatusValue.SERVER_TRANSFER_PROHIBITED);
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Inject ResourceCommand resourceCommand;
   @Inject ExtensionManager extensionManager;
@@ -136,6 +155,9 @@ public final class DomainTransferRequestFlow implements TransactionalFlow {
   @Inject AsyncTaskEnqueuer asyncTaskEnqueuer;
   @Inject EppResponse.Builder responseBuilder;
   @Inject DomainPricingLogic pricingLogic;
+  @Inject CloudTasksUtils cloudTasksUtils;
+  @Inject Clock clock;
+
   @Inject DomainTransferRequestFlow() {}
 
   @Override
@@ -238,7 +260,7 @@ public final class DomainTransferRequestFlow implements TransactionalFlow {
             .build();
     DomainHistory domainHistory = buildDomainHistory(newDomain, registry, now, period);
 
-    asyncTaskEnqueuer.enqueueAsyncResave(newDomain.createVKey(), now, automaticTransferTime);
+    enqueueAsyncResave(newDomain.createVKey(), now, automaticTransferTime);
     tm().putAll(
             new ImmutableSet.Builder<>()
                 .add(newDomain, domainHistory, requestPollMessage)
@@ -355,5 +377,32 @@ public final class DomainTransferRequestFlow implements TransactionalFlow {
                 .setCurrency(feesAndCredits.get().getCurrency())
                 .build())
         : ImmutableList.of();
+  }
+
+  /** Enqueues a task to asynchronously re-save an entity at some point in the future. */
+  private void enqueueAsyncResave(
+      VKey<?> entityToResave, DateTime now, DateTime whenToResaveUnsorted) {
+    ImmutableSortedSet<DateTime> whenToResave = ImmutableSortedSet.of(whenToResaveUnsorted);
+    DateTime firstResave = whenToResave.first();
+    checkArgument(isBeforeOrAt(now, firstResave), "Can't enqueue a resave " + "to run in the past");
+    Duration etaDuration = new Duration(now, firstResave);
+    if (etaDuration.isLongerThan(MAX_ASYNC_ETA)) {
+      logger.atInfo().log(
+          "Ignoring async re-save of %s; %s is past the ETA threshold of %s.",
+          entityToResave, firstResave, MAX_ASYNC_ETA);
+      return;
+    }
+    Multimap<String, String> params = ArrayListMultimap.create();
+    params.put(PARAM_RESOURCE_KEY, entityToResave.stringify());
+    params.put(PARAM_REQUESTED_TIME, now.toString());
+    if (whenToResave.size() > 1) {
+      params.put(PARAM_RESAVE_TIMES, Joiner.on(',').join(whenToResave.tailSet(firstResave, false)));
+    }
+    logger.atInfo().log(
+        "Enqueuing async re-save of %s to run at %s.", entityToResave, whenToResave);
+    cloudTasksUtils.enqueue(
+        QUEUE_ASYNC_ACTIONS,
+        CloudTasksUtils.createPostTask(
+            ResaveEntityAction.PATH, Service.BACKEND.toString(), params, clock, etaDuration));
   }
 }

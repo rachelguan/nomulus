@@ -24,6 +24,8 @@ import dagger.Provides;
 import dagger.Subcomponent;
 import google.registry.batch.AsyncTaskEnqueuer;
 import google.registry.batch.AsyncTaskEnqueuerTest;
+import google.registry.config.CloudTasksUtilsModule;
+import google.registry.config.CredentialModule;
 import google.registry.config.RegistryConfig.ConfigModule;
 import google.registry.config.RegistryConfig.ConfigModule.TmchCaMode;
 import google.registry.dns.DnsQueue;
@@ -45,7 +47,13 @@ import javax.inject.Singleton;
 
 /** Dagger component for running EPP tests. */
 @Singleton
-@Component(modules = {ConfigModule.class, EppTestComponent.FakesAndMocksModule.class})
+@Component(
+    modules = {
+      CloudTasksUtilsModule.class,
+      CredentialModule.class,
+      ConfigModule.class,
+      EppTestComponent.FakesAndMocksModule.class
+    })
 public interface EppTestComponent {
 
   RequestComponent startRequest();

@@ -45,6 +45,7 @@ import google.registry.model.ofy.Ofy;
 import google.registry.model.reporting.HistoryEntryDao;
 import google.registry.monitoring.whitebox.EppMetric;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DatabaseHelper;
 import google.registry.testing.EppLoader;
 import google.registry.testing.FakeClock;
@@ -53,6 +54,7 @@ import google.registry.testing.InjectExtension;
 import google.registry.testing.TestDataHelper;
 import google.registry.tmch.TmchCertificateAuthority;
 import google.registry.tmch.TmchXmlSignature;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.TypeUtils.TypeInstantiator;
 import google.registry.xml.ValidationMode;
 import java.util.Arrays;
@@ -88,6 +90,8 @@ public abstract class FlowTestCase<F extends Flow> {
   protected FakeClock clock = new FakeClock(DateTime.now(UTC));
   protected TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   protected EppRequestSource eppRequestSource = EppRequestSource.UNIT_TEST;
+  protected CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  protected CloudTasksUtils cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
   private TmchXmlSignature testTmchXmlSignature = null;
 
   private EppMetric.Builder eppMetricBuilder;

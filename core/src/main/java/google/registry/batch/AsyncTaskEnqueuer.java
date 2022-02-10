@@ -15,14 +15,11 @@
 package google.registry.batch;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static google.registry.util.DateTimeUtils.isBeforeOrAt;
 
 import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.appengine.api.taskqueue.TaskOptions.Method;
 import com.google.appengine.api.taskqueue.TransientFailureException;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
 import google.registry.model.EppResource;
@@ -56,7 +53,7 @@ public final class AsyncTaskEnqueuer {
   public static final String QUEUE_ASYNC_HOST_RENAME = "async-host-rename-pull";
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
-  private static final Duration MAX_ASYNC_ETA = Duration.standardDays(30);
+  public static final Duration MAX_ASYNC_ETA = Duration.standardDays(30);
 
   private final Duration asyncDeleteDelay;
   private final Queue asyncActionsPushQueue;
@@ -79,43 +76,6 @@ public final class AsyncTaskEnqueuer {
     this.asyncDeleteDelay = asyncDeleteDelay;
     this.appEngineServiceUtils = appEngineServiceUtils;
     this.retrier = retrier;
-  }
-
-  /** Enqueues a task to asynchronously re-save an entity at some point in the future. */
-  public void enqueueAsyncResave(VKey<?> entityToResave, DateTime now, DateTime whenToResave) {
-    enqueueAsyncResave(entityToResave, now, ImmutableSortedSet.of(whenToResave));
-  }
-
-  /**
-   * Enqueues a task to asynchronously re-save an entity at some point(s) in the future.
-   *
-   * <p>Multiple re-save times are chained one after the other, i.e. any given run will re-enqueue
-   * itself to run at the next time if there are remaining re-saves scheduled.
-   */
-  public void enqueueAsyncResave(
-      VKey<?> entityKey, DateTime now, ImmutableSortedSet<DateTime> whenToResave) {
-    DateTime firstResave = whenToResave.first();
-    checkArgument(isBeforeOrAt(now, firstResave), "Can't enqueue a resave to run in the past");
-    Duration etaDuration = new Duration(now, firstResave);
-    if (etaDuration.isLongerThan(MAX_ASYNC_ETA)) {
-      logger.atInfo().log(
-          "Ignoring async re-save of %s; %s is past the ETA threshold of %s.",
-          entityKey, firstResave, MAX_ASYNC_ETA);
-      return;
-    }
-    logger.atInfo().log("Enqueuing async re-save of %s to run at %s.", entityKey, whenToResave);
-    String backendHostname = appEngineServiceUtils.getServiceHostname("backend");
-    TaskOptions task =
-        TaskOptions.Builder.withUrl(ResaveEntityAction.PATH)
-            .method(Method.POST)
-            .header("Host", backendHostname)
-            .countdownMillis(etaDuration.getMillis())
-            .param(PARAM_RESOURCE_KEY, entityKey.stringify())
-            .param(PARAM_REQUESTED_TIME, now.toString());
-    if (whenToResave.size() > 1) {
-      task.param(PARAM_RESAVE_TIMES, Joiner.on(',').join(whenToResave.tailSet(firstResave, false)));
-    }
-    addTaskToQueueWithRetry(asyncActionsPushQueue, task);
   }
 
   /** Enqueues a task to asynchronously delete a contact or host, by key. */
