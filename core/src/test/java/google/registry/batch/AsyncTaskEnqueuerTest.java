@@ -25,20 +25,24 @@ import static google.registry.testing.DatabaseHelper.persistActiveContact;
 import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
 import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static google.registry.testing.TestLogHandlerUtils.assertLogMessage;
-import static org.joda.time.Duration.standardDays;
 import static org.joda.time.Duration.standardHours;
 import static org.joda.time.Duration.standardSeconds;
 import static org.mockito.Mockito.when;
 
+import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.protobuf.util.Timestamps;
 import google.registry.model.contact.ContactResource;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
+import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeSleeper;
 import google.registry.testing.InjectExtension;
-import google.registry.testing.TaskQueueHelper.TaskMatcher;
+import google.registry.testing.TaskQueueHelper;
 import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.CapturingLogHandler;
+import google.registry.util.CloudTasksUtils;
 import google.registry.util.JdkLoggerConfig;
 import google.registry.util.Retrier;
 import java.util.logging.Level;
@@ -64,6 +68,7 @@ public class AsyncTaskEnqueuerTest {
   @RegisterExtension public final InjectExtension inject = new InjectExtension();
 
   @Mock private AppEngineServiceUtils appEngineServiceUtils;
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   private AsyncTaskEnqueuer asyncTaskEnqueuer;
   private final CapturingLogHandler logHandler = new CapturingLogHandler();
@@ -72,8 +77,28 @@ public class AsyncTaskEnqueuerTest {
   @BeforeEach
   void beforeEach() {
     JdkLoggerConfig.getConfig(AsyncTaskEnqueuer.class).addHandler(logHandler);
-    when(appEngineServiceUtils.getServiceHostname("backend")).thenReturn("backend.hostname.fake");
-    asyncTaskEnqueuer = createForTesting(appEngineServiceUtils, clock, standardSeconds(90));
+    asyncTaskEnqueuer =
+        createForTesting(
+            appEngineServiceUtils,
+            cloudTasksHelper.getTestCloudTasksUtils(),
+            clock,
+            standardSeconds(90));
+  }
+
+  public static AsyncTaskEnqueuer createForTesting(
+      AppEngineServiceUtils appEngineServiceUtils,
+      CloudTasksUtils cloudTasksUtils,
+      FakeClock clock,
+      Duration asyncDeleteDelay) {
+    return new AsyncTaskEnqueuer(
+        getQueue(QUEUE_ASYNC_ACTIONS),
+        getQueue(QUEUE_ASYNC_DELETE),
+        getQueue(QUEUE_ASYNC_HOST_RENAME),
+        asyncDeleteDelay,
+        appEngineServiceUtils,
+        cloudTasksUtils,
+        clock,
+        new Retrier(new FakeSleeper(clock), 1));
   }
 
   public static AsyncTaskEnqueuer createForTesting(
@@ -84,6 +109,8 @@ public class AsyncTaskEnqueuerTest {
         getQueue(QUEUE_ASYNC_HOST_RENAME),
         asyncDeleteDelay,
         appEngineServiceUtils,
+        null,
+        clock,
         new Retrier(new FakeSleeper(clock), 1));
   }
 
@@ -92,18 +119,16 @@ public class AsyncTaskEnqueuerTest {
     ContactResource contact = persistActiveContact("jd23456");
     asyncTaskEnqueuer.enqueueAsyncResave(
         contact.createVKey(), clock.nowUtc(), clock.nowUtc().plusDays(5));
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
-        new TaskMatcher()
+        new CloudTasksHelper.TaskMatcher()
             .url(ResaveEntityAction.PATH)
-            .method("POST")
-            .header("Host", "backend.hostname.fake")
+            .method(HttpMethod.POST)
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())
-            .etaDelta(
-                standardDays(5).minus(standardSeconds(30)),
-                standardDays(5).plus(standardSeconds(30))));
+            .scheduleTime(
+                Timestamps.fromMillis(clock.nowUtc().plus(Duration.standardDays(5)).getMillis())));
   }
 
   @Test
@@ -114,19 +139,18 @@ public class AsyncTaskEnqueuerTest {
         contact.createVKey(),
         now,
         ImmutableSortedSet.of(now.plusHours(24), now.plusHours(50), now.plusHours(75)));
-    assertTasksEnqueued(
+    cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
         new TaskMatcher()
             .url(ResaveEntityAction.PATH)
-            .method("POST")
-            .header("Host", "backend.hostname.fake")
+            .method(HttpMethod.POST)
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, now.toString())
             .param(PARAM_RESAVE_TIMES, "2015-05-20T14:34:56.000Z,2015-05-21T15:34:56.000Z")
-            .etaDelta(
-                standardHours(24).minus(standardSeconds(30)),
-                standardHours(24).plus(standardSeconds(30))));
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    clock.nowUtc().plus(Duration.standardHours(24)).getMillis())));
   }
 
   @MockitoSettings(strictness = Strictness.LENIENT)
@@ -135,7 +159,7 @@ public class AsyncTaskEnqueuerTest {
     ContactResource contact = persistActiveContact("jd23456");
     asyncTaskEnqueuer.enqueueAsyncResave(
         contact.createVKey(), clock.nowUtc(), clock.nowUtc().plusDays(31));
-    assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
+    cloudTasksHelper.assertNoTasksEnqueued(QUEUE_ASYNC_ACTIONS);
     assertLogMessage(logHandler, Level.INFO, "Ignoring async re-save");
   }
 }

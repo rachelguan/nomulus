@@ -42,6 +42,7 @@ import google.registry.model.reporting.HistoryEntry.Type;
 import google.registry.model.tld.Registry;
 import google.registry.monitoring.whitebox.EppMetric;
 import google.registry.persistence.VKey;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeHttpSession;
 import google.registry.testing.FakeResponse;
@@ -69,6 +70,7 @@ public class EppTestCase {
   private TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   private EppMetric.Builder eppMetricBuilder;
   private boolean isSuperuser;
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   @BeforeEach
   public void beforeEachEppTestCase() {
@@ -225,11 +227,14 @@ public class EppTestCase {
     FakeResponse response = new FakeResponse();
     handler.response = response;
     eppMetricBuilder = EppMetric.builderForRequest(clock);
-    handler.eppController = DaggerEppTestComponent.builder()
-        .fakesAndMocksModule(FakesAndMocksModule.create(clock, eppMetricBuilder))
-        .build()
-        .startRequest()
-        .eppController();
+    handler.eppController =
+        DaggerEppTestComponent.builder()
+            .fakesAndMocksModule(
+                FakesAndMocksModule.create(
+                    clock, eppMetricBuilder, cloudTasksHelper.getTestCloudTasksUtils()))
+            .build()
+            .startRequest()
+            .eppController();
     handler.executeEpp(
         sessionMetadata,
         credentials,

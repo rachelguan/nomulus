@@ -45,6 +45,7 @@ import google.registry.model.ofy.Ofy;
 import google.registry.model.reporting.HistoryEntryDao;
 import google.registry.monitoring.whitebox.EppMetric;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DatabaseHelper;
 import google.registry.testing.EppLoader;
 import google.registry.testing.FakeClock;
@@ -88,6 +89,7 @@ public abstract class FlowTestCase<F extends Flow> {
   protected FakeClock clock = new FakeClock(DateTime.now(UTC));
   protected TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   protected EppRequestSource eppRequestSource = EppRequestSource.UNIT_TEST;
+  protected CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
   private TmchXmlSignature testTmchXmlSignature = null;
 
   private EppMetric.Builder eppMetricBuilder;
@@ -235,7 +237,12 @@ public abstract class FlowTestCase<F extends Flow> {
             ? testTmchXmlSignature
             : new TmchXmlSignature(new TmchCertificateAuthority(tmchCaMode, clock));
     return DaggerEppTestComponent.builder()
-        .fakesAndMocksModule(FakesAndMocksModule.create(clock, eppMetricBuilder, tmchXmlSignature))
+        .fakesAndMocksModule(
+            FakesAndMocksModule.create(
+                clock,
+                eppMetricBuilder,
+                tmchXmlSignature,
+                cloudTasksHelper.getTestCloudTasksUtils()))
         .build()
         .startRequest()
         .flowComponentBuilder()

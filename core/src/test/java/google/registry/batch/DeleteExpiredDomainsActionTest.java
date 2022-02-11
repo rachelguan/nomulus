@@ -42,6 +42,7 @@ import google.registry.model.reporting.HistoryEntry;
 import google.registry.monitoring.whitebox.EppMetric;
 import google.registry.persistence.transaction.QueryComposer.Comparator;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DualDatabaseTest;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeLockHandler;
@@ -79,7 +80,10 @@ class DeleteExpiredDomainsActionTest {
     EppController eppController =
         DaggerEppTestComponent.builder()
             .fakesAndMocksModule(
-                FakesAndMocksModule.create(clock, EppMetric.builderForRequest(clock)))
+                FakesAndMocksModule.create(
+                    clock,
+                    EppMetric.builderForRequest(clock),
+                    new CloudTasksHelper().getTestCloudTasksUtils()))
             .build()
             .startRequest()
             .eppController();
