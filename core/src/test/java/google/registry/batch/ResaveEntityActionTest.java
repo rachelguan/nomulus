@@ -71,7 +71,7 @@ public class ResaveEntityActionTest {
   @Mock private Response response;
   private final FakeClock clock = new FakeClock(DateTime.parse("2016-02-11T10:00:00Z"));
   private AsyncTaskEnqueuer asyncTaskEnqueuer;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
 
   @BeforeEach
   void beforeEach() {
@@ -149,6 +149,7 @@ public class ResaveEntityActionTest {
         new TaskMatcher()
             .url(ResaveEntityAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, resavedDomain.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, requestedTime.toString())

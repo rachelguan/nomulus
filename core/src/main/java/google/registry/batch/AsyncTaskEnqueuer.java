@@ -33,7 +33,6 @@ import google.registry.model.host.HostResource;
 import google.registry.persistence.VKey;
 import google.registry.request.Action.Service;
 import google.registry.util.AppEngineServiceUtils;
-import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
 import google.registry.util.Retrier;
 import javax.inject.Inject;
@@ -68,18 +67,17 @@ public final class AsyncTaskEnqueuer {
   private final Queue asyncDnsRefreshPullQueue;
   private final AppEngineServiceUtils appEngineServiceUtils;
   private CloudTasksUtils cloudTasksUtils;
-  private Clock clock;
   private final Retrier retrier;
 
   @Inject
   public AsyncTaskEnqueuer(
+      // TODO: (b/220926392) remove QUEUE_AYNSC_ACTIONS after PR#1519 is merged
       @Named(QUEUE_ASYNC_ACTIONS) Queue asyncActionsPushQueue,
       @Named(QUEUE_ASYNC_DELETE) Queue asyncDeletePullQueue,
       @Named(QUEUE_ASYNC_HOST_RENAME) Queue asyncDnsRefreshPullQueue,
       @Config("asyncDeleteFlowMapreduceDelay") Duration asyncDeleteDelay,
       AppEngineServiceUtils appEngineServiceUtils,
       CloudTasksUtils cloudTasksUtils,
-      Clock clock,
       Retrier retrier) {
     this.asyncActionsPushQueue = asyncActionsPushQueue;
     this.asyncDeletePullQueue = asyncDeletePullQueue;
@@ -87,7 +85,6 @@ public final class AsyncTaskEnqueuer {
     this.asyncDeleteDelay = asyncDeleteDelay;
     this.appEngineServiceUtils = appEngineServiceUtils;
     this.cloudTasksUtils = cloudTasksUtils;
-    this.clock = clock;
     this.retrier = retrier;
   }
 
@@ -105,7 +102,7 @@ public final class AsyncTaskEnqueuer {
   public void enqueueAsyncResave(
       VKey<?> entityKey, DateTime now, ImmutableSortedSet<DateTime> whenToResave) {
     DateTime firstResave = whenToResave.first();
-    checkArgument(isBeforeOrAt(now, firstResave), "Can't enqueue a resave " + "to run in the past");
+    checkArgument(isBeforeOrAt(now, firstResave), "Can't enqueue a resave to run in the past");
     Duration etaDuration = new Duration(now, firstResave);
     if (etaDuration.isLongerThan(MAX_ASYNC_ETA)) {
       logger.atInfo().log(
@@ -122,8 +119,8 @@ public final class AsyncTaskEnqueuer {
     logger.atInfo().log("Enqueuing async re-save of %s to run at %s.", entityKey, whenToResave);
     cloudTasksUtils.enqueue(
         QUEUE_ASYNC_ACTIONS,
-        CloudTasksUtils.createPostTask(
-            ResaveEntityAction.PATH, Service.BACKEND.toString(), params, clock, etaDuration));
+        cloudTasksUtils.createPostTaskWithDelay(
+            ResaveEntityAction.PATH, Service.BACKEND.toString(), params, etaDuration));
   }
 
   /** Enqueues a task to asynchronously delete a contact or host, by key. */

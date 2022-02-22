@@ -75,9 +75,7 @@ class EppPointInTimeTest {
     DaggerEppTestComponent.builder()
         .fakesAndMocksModule(
             FakesAndMocksModule.create(
-                clock,
-                EppMetric.builderForRequest(clock),
-                new CloudTasksHelper().getTestCloudTasksUtils()))
+                EppMetric.builderForRequest(clock), new CloudTasksHelper(clock)))
         .build()
         .startRequest()
         .flowComponentBuilder()

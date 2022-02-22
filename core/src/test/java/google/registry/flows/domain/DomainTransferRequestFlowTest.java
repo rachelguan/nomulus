@@ -519,6 +519,7 @@ class DomainTransferRequestFlowTest
         new TaskMatcher()
             .url(ResaveEntityAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, domain.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())

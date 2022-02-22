@@ -70,7 +70,7 @@ public class EppTestCase {
   private TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   private EppMetric.Builder eppMetricBuilder;
   private boolean isSuperuser;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
 
   @BeforeEach
   public void beforeEachEppTestCase() {
@@ -229,9 +229,7 @@ public class EppTestCase {
     eppMetricBuilder = EppMetric.builderForRequest(clock);
     handler.eppController =
         DaggerEppTestComponent.builder()
-            .fakesAndMocksModule(
-                FakesAndMocksModule.create(
-                    clock, eppMetricBuilder, cloudTasksHelper.getTestCloudTasksUtils()))
+            .fakesAndMocksModule(FakesAndMocksModule.create(eppMetricBuilder, cloudTasksHelper))
             .build()
             .startRequest()
             .eppController();

@@ -109,7 +109,7 @@ public final class DomainLockUtilsTest {
             cloudTasksHelper.getTestCloudTasksUtils());
 =======
             AsyncTaskEnqueuerTest.createForTesting(
-                appEngineServiceUtils, new CloudTasksHelper().getTestCloudTasksUtils(),
+                appEngineServiceUtils, new CloudTasksHelper(clock).getTestCloudTasksUtils(),
                 clock, standardSeconds(90)));
 >>>>>>> ad0009e78 (Inject CloudTasksUtil to AsyncTasksEnqueuer)
   }

@@ -68,11 +68,11 @@ public class AsyncTaskEnqueuerTest {
   @RegisterExtension public final InjectExtension inject = new InjectExtension();
 
   @Mock private AppEngineServiceUtils appEngineServiceUtils;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
 
   private AsyncTaskEnqueuer asyncTaskEnqueuer;
   private final CapturingLogHandler logHandler = new CapturingLogHandler();
   private final FakeClock clock = new FakeClock(DateTime.parse("2015-05-18T12:34:56Z"));
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
 
   @BeforeEach
   void beforeEach() {
@@ -97,7 +97,6 @@ public class AsyncTaskEnqueuerTest {
         asyncDeleteDelay,
         appEngineServiceUtils,
         cloudTasksUtils,
-        clock,
         new Retrier(new FakeSleeper(clock), 1));
   }
 
@@ -110,7 +109,6 @@ public class AsyncTaskEnqueuerTest {
         asyncDeleteDelay,
         appEngineServiceUtils,
         null,
-        clock,
         new Retrier(new FakeSleeper(clock), 1));
   }
 
@@ -124,6 +122,7 @@ public class AsyncTaskEnqueuerTest {
         new CloudTasksHelper.TaskMatcher()
             .url(ResaveEntityAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())
@@ -144,6 +143,7 @@ public class AsyncTaskEnqueuerTest {
         new TaskMatcher()
             .url(ResaveEntityAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, now.toString())

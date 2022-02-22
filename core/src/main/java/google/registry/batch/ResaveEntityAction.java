@@ -80,10 +80,11 @@ public class ResaveEntityAction implements Runnable {
                       (entity instanceof EppResource)
                           ? ((EppResource) entity).cloneProjectedAtTime(tm().getTransactionTime())
                           : entity);
+              if (!resaveTimes.isEmpty()) {
+                asyncTaskEnqueuer.enqueueAsyncResave(
+                    VKey.create(resourceKey), requestedTime, resaveTimes);
+              }
             });
-    if (!resaveTimes.isEmpty()) {
-      asyncTaskEnqueuer.enqueueAsyncResave(VKey.create(resourceKey), requestedTime, resaveTimes);
-    }
     response.setPayload("Entity re-saved.");
   }
 }

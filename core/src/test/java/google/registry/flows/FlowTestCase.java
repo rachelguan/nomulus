@@ -89,7 +89,7 @@ public abstract class FlowTestCase<F extends Flow> {
   protected FakeClock clock = new FakeClock(DateTime.now(UTC));
   protected TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   protected EppRequestSource eppRequestSource = EppRequestSource.UNIT_TEST;
-  protected CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  protected CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
   private TmchXmlSignature testTmchXmlSignature = null;
 
   private EppMetric.Builder eppMetricBuilder;
@@ -238,11 +238,7 @@ public abstract class FlowTestCase<F extends Flow> {
             : new TmchXmlSignature(new TmchCertificateAuthority(tmchCaMode, clock));
     return DaggerEppTestComponent.builder()
         .fakesAndMocksModule(
-            FakesAndMocksModule.create(
-                clock,
-                eppMetricBuilder,
-                tmchXmlSignature,
-                cloudTasksHelper.getTestCloudTasksUtils()))
+            FakesAndMocksModule.create(eppMetricBuilder, tmchXmlSignature, cloudTasksHelper))
         .build()
         .startRequest()
         .flowComponentBuilder()

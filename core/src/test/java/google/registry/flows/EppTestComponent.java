@@ -41,7 +41,6 @@ import google.registry.tmch.TmchCertificateAuthority;
 import google.registry.tmch.TmchXmlSignature;
 import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.Clock;
-import google.registry.util.CloudTasksUtils;
 import google.registry.util.Sleeper;
 import javax.inject.Singleton;
 
@@ -67,40 +66,34 @@ public interface EppTestComponent {
 
     public static FakesAndMocksModule create() {
       FakeClock clock = new FakeClock();
-      return create(
-          clock,
-          EppMetric.builderForRequest(clock),
-          new CloudTasksHelper().getTestCloudTasksUtils());
-    }
-
-    public static FakesAndMocksModule create(CloudTasksUtils cloudTasksUtils) {
-      FakeClock clock = new FakeClock();
-      return create(clock, EppMetric.builderForRequest(clock), cloudTasksUtils);
+      return create(EppMetric.builderForRequest(clock), new CloudTasksHelper(clock));
     }
 
     public static FakesAndMocksModule create(
-        FakeClock clock, EppMetric.Builder metricBuilder, CloudTasksUtils cloudTasksUtils) {
+        EppMetric.Builder metricBuilder, CloudTasksHelper cloudTasksHelper) {
+      FakeClock clock = cloudTasksHelper.getClock();
       return create(
-          clock,
           metricBuilder,
           new TmchXmlSignature(new TmchCertificateAuthority(TmchCaMode.PILOT, clock)),
-          cloudTasksUtils);
+          cloudTasksHelper);
     }
 
     public static FakesAndMocksModule create(
-        FakeClock clock,
         EppMetric.Builder eppMetricBuilder,
         TmchXmlSignature tmchXmlSignature,
-        CloudTasksUtils cloudTasksUtils) {
+        CloudTasksHelper cloudTasksHelper) {
       FakesAndMocksModule instance = new FakesAndMocksModule();
       AppEngineServiceUtils appEngineServiceUtils = mock(AppEngineServiceUtils.class);
       when(appEngineServiceUtils.getServiceHostname("backend")).thenReturn("backend.hostname.fake");
       instance.asyncTaskEnqueuer =
           AsyncTaskEnqueuerTest.createForTesting(
-              appEngineServiceUtils, cloudTasksUtils, clock, standardSeconds(90));
-      instance.clock = clock;
+              appEngineServiceUtils,
+              cloudTasksHelper.getTestCloudTasksUtils(),
+              cloudTasksHelper.getClock(),
+              standardSeconds(90));
+      instance.clock = cloudTasksHelper.getClock();
       instance.domainFlowTmchUtils = new DomainFlowTmchUtils(tmchXmlSignature);
-      instance.sleeper = new FakeSleeper(clock);
+      instance.sleeper = new FakeSleeper(instance.clock);
       instance.dnsQueue = DnsQueue.create();
       instance.metricBuilder = eppMetricBuilder;
       instance.appEngineServiceUtils = appEngineServiceUtils;
