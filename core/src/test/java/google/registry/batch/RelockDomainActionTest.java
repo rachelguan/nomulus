@@ -31,7 +31,6 @@ import static google.registry.testing.SqlHelper.saveRegistryLock;
 import static google.registry.tools.LockOrUnlockDomainCommand.REGISTRY_LOCK_STATUSES;
 import static javax.servlet.http.HttpServletResponse.SC_NO_CONTENT;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static org.joda.time.Duration.standardHours;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -94,7 +93,7 @@ public class RelockDomainActionTest {
   private RegistryLock oldLock;
   @Mock private SendEmailService sendEmailService;
   private RelockDomainAction action;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
 
   @BeforeEach
   void beforeEach() throws Exception {
@@ -264,41 +263,6 @@ public class RelockDomainActionTest {
         RelockDomainAction.ATTEMPTS_BEFORE_SLOWDOWN + 1,
         oldLock.getRevisionId(),
         Duration.standardHours(1));
-  }
-
-  @TestOfyAndSql
-  void testEnqueueRelock() {
-    RegistryLock lock =
-        saveRegistryLock(
-            new RegistryLock.Builder()
-                .setLockCompletionTime(clock.nowUtc())
-                .setUnlockRequestTime(clock.nowUtc())
-                .setUnlockCompletionTime(clock.nowUtc())
-                .isSuperuser(false)
-                .setDomainName("example.tld")
-                .setRepoId("repoId")
-                .setRelockDuration(standardHours(6))
-                .setRegistrarId("TheRegistrar")
-                .setRegistrarPocId("someone@example.com")
-                .setVerificationCode("hi")
-                .build());
-    domainLockUtils.enqueueDomainRelock(
-        lock.getRelockDuration().get(),
-        lock.getRevisionId(),
-        0,
-        cloudTasksHelper.getTestCloudTasksUtils());
-    cloudTasksHelper.assertTasksEnqueued(
-        QUEUE_ASYNC_ACTIONS,
-        new CloudTasksHelper.TaskMatcher()
-            .url(RelockDomainAction.PATH)
-            .method(HttpMethod.POST)
-            .param(
-                RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
-                String.valueOf(lock.getRevisionId()))
-            .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
-            .scheduleTime(
-                Timestamps.fromMillis(
-                    clock.nowUtc().plus(lock.getRelockDuration().get()).getMillis())));
   }
 
   private void assertSuccessEmailSent() throws Exception {

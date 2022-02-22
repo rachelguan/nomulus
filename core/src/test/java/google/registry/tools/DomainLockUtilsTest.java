@@ -78,7 +78,7 @@ public final class DomainLockUtilsTest {
 
   private final FakeClock clock = new FakeClock(DateTime.now(DateTimeZone.UTC));
   private DomainLockUtils domainLockUtils;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
 
   @RegisterExtension
   public final AppEngineExtension appEngineExtension =
@@ -295,9 +295,7 @@ public final class DomainLockUtilsTest {
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(lock.getRevisionId()))
             .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
-            .scheduleTime(
-                Timestamps.fromMillis(
-                    clock.nowUtc().plus(lock.getRelockDuration().get()).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(lock.getRelockDuration().get())));
   }
 
   @TestOfyAndSql
@@ -500,6 +498,41 @@ public final class DomainLockUtilsTest {
     RegistryLock afterAction = getRegistryLockByVerificationCode(lock.getVerificationCode()).get();
     assertThat(afterAction).isEqualTo(lock);
     assertNoDomainChanges();
+  }
+
+  @TestOfyAndSql
+  void testEnqueueRelock() {
+    RegistryLock lock =
+        saveRegistryLock(
+            new RegistryLock.Builder()
+                .setLockCompletionTime(clock.nowUtc())
+                .setUnlockRequestTime(clock.nowUtc())
+                .setUnlockCompletionTime(clock.nowUtc())
+                .isSuperuser(false)
+                .setDomainName("example.tld")
+                .setRepoId("repoId")
+                .setRelockDuration(standardHours(6))
+                .setRegistrarId("TheRegistrar")
+                .setRegistrarPocId("someone@example.com")
+                .setVerificationCode("hi")
+                .build());
+    domainLockUtils.enqueueDomainRelock(
+        lock.getRelockDuration().get(),
+        lock.getRevisionId(),
+        0,
+        cloudTasksHelper.getTestCloudTasksUtils());
+    cloudTasksHelper.assertTasksEnqueued(
+        QUEUE_ASYNC_ACTIONS,
+        new CloudTasksHelper.TaskMatcher()
+            .url(RelockDomainAction.PATH)
+            .method(HttpMethod.POST)
+            .param(
+                RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
+                String.valueOf(lock.getRevisionId()))
+            .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
+            .scheduleTime(
+                Timestamps.fromMillis(
+                    clock.nowUtc().plus(lock.getRelockDuration().get()).getMillis())));
   }
 
   @MockitoSettings(strictness = Strictness.LENIENT)

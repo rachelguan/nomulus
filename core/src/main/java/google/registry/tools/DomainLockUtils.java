@@ -238,7 +238,7 @@ public final class DomainLockUtils {
       CloudTasksUtils cloudTasksUtils) {
     cloudTasksUtils.enqueue(
         QUEUE_ASYNC_ACTIONS,
-        CloudTasksUtils.createPostTask(
+        cloudTasksUtils.createPostTaskWithDelay(
             RelockDomainAction.PATH,
             Service.BACKEND.toString(),
             ImmutableMultimap.of(
@@ -246,7 +246,6 @@ public final class DomainLockUtils {
                 String.valueOf(lockRevisionId),
                 RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM,
                 String.valueOf(previousAttempts)),
-            clock,
             countdown));
   }
 
