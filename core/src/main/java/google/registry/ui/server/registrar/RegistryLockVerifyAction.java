@@ -27,7 +27,6 @@ import google.registry.request.auth.Auth;
 import google.registry.tools.DomainLockUtils;
 import google.registry.ui.server.SoyTemplateUtils;
 import google.registry.ui.soy.registrar.RegistryLockVerificationSoyInfo;
-import google.registry.util.CloudTasksUtils;
 import java.util.HashMap;
 import javax.inject.Inject;
 
@@ -52,18 +51,15 @@ public final class RegistryLockVerifyAction extends HtmlAction {
   private final DomainLockUtils domainLockUtils;
   private final String lockVerificationCode;
   private final Boolean isLock;
-  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   public RegistryLockVerifyAction(
       DomainLockUtils domainLockUtils,
       @Parameter("lockVerificationCode") String lockVerificationCode,
-      @Parameter("isLock") Boolean isLock,
-      CloudTasksUtils cloudTasksUtils) {
+      @Parameter("isLock") Boolean isLock) {
     this.domainLockUtils = domainLockUtils;
     this.lockVerificationCode = lockVerificationCode;
     this.isLock = isLock;
-    this.cloudTasksUtils = cloudTasksUtils;
   }
 
   @Override
@@ -74,8 +70,7 @@ public final class RegistryLockVerifyAction extends HtmlAction {
       if (isLock) {
         resultLock = domainLockUtils.verifyAndApplyLock(lockVerificationCode, isAdmin);
       } else {
-        resultLock =
-            domainLockUtils.verifyAndApplyUnlock(lockVerificationCode, isAdmin, cloudTasksUtils);
+        resultLock = domainLockUtils.verifyAndApplyUnlock(lockVerificationCode, isAdmin);
       }
       data.put("isLock", isLock);
       data.put("success", true);

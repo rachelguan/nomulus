@@ -36,7 +36,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.util.Timestamps;
 import google.registry.batch.RelockDomainAction;
 import google.registry.model.billing.BillingEvent;
 import google.registry.model.billing.BillingEvent.Reason;
@@ -100,7 +99,10 @@ public final class DomainLockUtilsTest {
     AppEngineServiceUtils appEngineServiceUtils = mock(AppEngineServiceUtils.class);
     when(appEngineServiceUtils.getServiceHostname("backend")).thenReturn("backend.hostname.fake");
     domainLockUtils =
-        new DomainLockUtils(new DeterministicStringGenerator(Alphabets.BASE_58), "adminreg", clock);
+        new DomainLockUtils(
+            new DeterministicStringGenerator(Alphabets.BASE_58),
+            "adminreg",
+            cloudTasksHelper.getTestCloudTasksUtils());
   }
 
   @TestOfyAndSql
@@ -148,8 +150,7 @@ public final class DomainLockUtilsTest {
     RegistryLock unlockRequest =
         domainLockUtils.saveNewRegistryUnlockRequest(
             DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
-    domainLockUtils.verifyAndApplyUnlock(
-        unlockRequest.getVerificationCode(), false, cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.verifyAndApplyUnlock(unlockRequest.getVerificationCode(), false);
     assertThat(loadByEntity(domain).getStatusValues()).containsNoneIn(REGISTRY_LOCK_STATUSES);
   }
 
@@ -167,8 +168,7 @@ public final class DomainLockUtilsTest {
     RegistryLock unlock =
         domainLockUtils.saveNewRegistryUnlockRequest(
             DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
-    domainLockUtils.verifyAndApplyUnlock(
-        unlock.getVerificationCode(), false, cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.verifyAndApplyUnlock(unlock.getVerificationCode(), false);
     verifyProperlyUnlockedDomain(false);
   }
 
@@ -188,8 +188,7 @@ public final class DomainLockUtilsTest {
     RegistryLock unlock =
         domainLockUtils.saveNewRegistryUnlockRequest(
             DOMAIN_NAME, "TheRegistrar", true, Optional.empty());
-    domainLockUtils.verifyAndApplyUnlock(
-        unlock.getVerificationCode(), true, cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.verifyAndApplyUnlock(unlock.getVerificationCode(), true);
     verifyProperlyUnlockedDomain(true);
   }
 
@@ -212,11 +211,7 @@ public final class DomainLockUtilsTest {
         domainLockUtils.saveNewRegistryLockRequest(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
     domainLockUtils.verifyAndApplyLock(lock.getVerificationCode(), false);
     domainLockUtils.administrativelyApplyUnlock(
-        DOMAIN_NAME,
-        "TheRegistrar",
-        false,
-        Optional.empty(),
-        cloudTasksHelper.getTestCloudTasksUtils());
+        DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
     verifyProperlyUnlockedDomain(false);
   }
 
@@ -226,11 +221,7 @@ public final class DomainLockUtilsTest {
         domainLockUtils.saveNewRegistryLockRequest(DOMAIN_NAME, "TheRegistrar", null, true);
     domainLockUtils.verifyAndApplyLock(lock.getVerificationCode(), true);
     domainLockUtils.administrativelyApplyUnlock(
-        DOMAIN_NAME,
-        "TheRegistrar",
-        true,
-        Optional.empty(),
-        cloudTasksHelper.getTestCloudTasksUtils());
+        DOMAIN_NAME, "TheRegistrar", true, Optional.empty());
     verifyProperlyUnlockedDomain(true);
   }
 
@@ -239,11 +230,7 @@ public final class DomainLockUtilsTest {
     domainLockUtils.administrativelyApplyLock(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
     RegistryLock oldLock =
         domainLockUtils.administrativelyApplyUnlock(
-            DOMAIN_NAME,
-            "TheRegistrar",
-            false,
-            Optional.empty(),
-            cloudTasksHelper.getTestCloudTasksUtils());
+            DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
     RegistryLock newLock =
         domainLockUtils.saveNewRegistryLockRequest(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
     newLock = domainLockUtils.verifyAndApplyLock(newLock.getVerificationCode(), false);
@@ -257,11 +244,7 @@ public final class DomainLockUtilsTest {
     domainLockUtils.administrativelyApplyLock(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
     RegistryLock oldLock =
         domainLockUtils.administrativelyApplyUnlock(
-            DOMAIN_NAME,
-            "TheRegistrar",
-            false,
-            Optional.empty(),
-            cloudTasksHelper.getTestCloudTasksUtils());
+            DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
     RegistryLock newLock =
         domainLockUtils.administrativelyApplyLock(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
     assertThat(
@@ -284,13 +267,13 @@ public final class DomainLockUtilsTest {
     RegistryLock lock =
         domainLockUtils.saveNewRegistryUnlockRequest(
             DOMAIN_NAME, "TheRegistrar", false, Optional.of(standardHours(6)));
-    domainLockUtils.verifyAndApplyUnlock(
-        lock.getVerificationCode(), false, cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.verifyAndApplyUnlock(lock.getVerificationCode(), false);
     cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
         new TaskMatcher()
             .url(RelockDomainAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .param(
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(lock.getRevisionId()))
@@ -463,17 +446,12 @@ public final class DomainLockUtilsTest {
     RegistryLock unlock =
         domainLockUtils.saveNewRegistryUnlockRequest(
             DOMAIN_NAME, "TheRegistrar", false, Optional.empty());
-    domainLockUtils.verifyAndApplyUnlock(
-        unlock.getVerificationCode(), false, cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.verifyAndApplyUnlock(unlock.getVerificationCode(), false);
 
     assertThat(
             assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                    domainLockUtils.verifyAndApplyUnlock(
-                        unlock.getVerificationCode(),
-                        false,
-                        cloudTasksHelper.getTestCloudTasksUtils())))
+                () -> domainLockUtils.verifyAndApplyUnlock(unlock.getVerificationCode(), false)))
         .hasMessageThat()
         .isEqualTo("Domain example.tld is already unlocked");
     assertNoDomainChanges();
@@ -516,23 +494,18 @@ public final class DomainLockUtilsTest {
                 .setRegistrarPocId("someone@example.com")
                 .setVerificationCode("hi")
                 .build());
-    domainLockUtils.enqueueDomainRelock(
-        lock.getRelockDuration().get(),
-        lock.getRevisionId(),
-        0,
-        cloudTasksHelper.getTestCloudTasksUtils());
+    domainLockUtils.enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0);
     cloudTasksHelper.assertTasksEnqueued(
         QUEUE_ASYNC_ACTIONS,
         new CloudTasksHelper.TaskMatcher()
             .url(RelockDomainAction.PATH)
             .method(HttpMethod.POST)
+            .service("backend")
             .param(
                 RelockDomainAction.OLD_UNLOCK_REVISION_ID_PARAM,
                 String.valueOf(lock.getRevisionId()))
             .param(RelockDomainAction.PREVIOUS_ATTEMPTS_PARAM, "0")
-            .scheduleTime(
-                Timestamps.fromMillis(
-                    clock.nowUtc().plus(lock.getRelockDuration().get()).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(lock.getRelockDuration().get())));
   }
 
   @MockitoSettings(strictness = Strictness.LENIENT)
@@ -551,9 +524,7 @@ public final class DomainLockUtilsTest {
     assertThat(
             Assert.assertThrows(
                 IllegalArgumentException.class,
-                () ->
-                    domainLockUtils.enqueueDomainRelock(
-                        lockWithoutDuration, cloudTasksHelper.getTestCloudTasksUtils())))
+                () -> domainLockUtils.enqueueDomainRelock(lockWithoutDuration)))
         .hasMessageThat()
         .isEqualTo(
             String.format(

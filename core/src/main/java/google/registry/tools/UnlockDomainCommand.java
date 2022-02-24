@@ -15,9 +15,7 @@
 package google.registry.tools;
 
 import com.beust.jcommander.Parameters;
-import google.registry.util.CloudTasksUtils;
 import java.util.Optional;
-import javax.inject.Inject;
 
 /**
  * A command to registry unlock domain names.
@@ -27,11 +25,8 @@ import javax.inject.Inject;
 @Parameters(separators = " =", commandDescription = "Registry unlock a domain via EPP.")
 public class UnlockDomainCommand extends LockOrUnlockDomainCommand {
 
-  @Inject CloudTasksUtils cloudTasksUtils;
-
   @Override
   protected void createAndApplyRequest(String domain) {
-    domainLockUtils.administrativelyApplyUnlock(
-        domain, clientId, true, Optional.empty(), cloudTasksUtils);
+    domainLockUtils.administrativelyApplyUnlock(domain, clientId, true, Optional.empty());
   }
 }

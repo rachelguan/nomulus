@@ -85,7 +85,7 @@ final class RegistryLockVerifyActionTest {
   private DomainBase domain;
   private AuthResult authResult;
   private RegistryLockVerifyAction action;
-  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(fakeClock);
 
   @BeforeEach
   void beforeEach() {
@@ -328,10 +328,10 @@ final class RegistryLockVerifyActionTest {
     response = new FakeResponse();
     RegistryLockVerifyAction action =
         new RegistryLockVerifyAction(
-            new DomainLockUtils(stringGenerator, "adminreg", fakeClock),
+            new DomainLockUtils(
+                stringGenerator, "adminreg", cloudTasksHelper.getTestCloudTasksUtils()),
             lockVerificationCode,
-            isLock,
-            cloudTasksHelper.getTestCloudTasksUtils());
+            isLock);
     authResult = AuthResult.create(AuthLevel.USER, UserAuthInfo.create(user, false));
     action.req = request;
     action.response = response;

@@ -45,6 +45,7 @@ import google.registry.request.auth.AuthenticatedRegistrarAccessor;
 import google.registry.request.auth.AuthenticatedRegistrarAccessor.Role;
 import google.registry.request.auth.UserAuthInfo;
 import google.registry.testing.AppEngineExtension;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DeterministicStringGenerator;
 import google.registry.testing.FakeClock;
 import google.registry.tools.DomainLockUtils;
@@ -463,7 +464,10 @@ final class RegistryLockPostActionTest {
     JsonActionRunner jsonActionRunner =
         new JsonActionRunner(ImmutableMap.of(), new JsonResponse(new ResponseImpl(mockResponse)));
     DomainLockUtils domainLockUtils =
-        new DomainLockUtils(new DeterministicStringGenerator(Alphabets.BASE_58), "adminreg", clock);
+        new DomainLockUtils(
+            new DeterministicStringGenerator(Alphabets.BASE_58),
+            "adminreg",
+            new CloudTasksHelper(clock).getTestCloudTasksUtils());
     return new RegistryLockPostAction(
         mockRequest,
         jsonActionRunner,

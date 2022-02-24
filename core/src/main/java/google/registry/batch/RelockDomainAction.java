@@ -39,7 +39,6 @@ import google.registry.request.Parameter;
 import google.registry.request.Response;
 import google.registry.request.auth.Auth;
 import google.registry.tools.DomainLockUtils;
-import google.registry.util.CloudTasksUtils;
 import google.registry.util.DateTimeUtils;
 import google.registry.util.EmailMessage;
 import google.registry.util.SendEmailService;
@@ -89,7 +88,6 @@ public class RelockDomainAction implements Runnable {
   private final SendEmailService sendEmailService;
   private final DomainLockUtils domainLockUtils;
   private final Response response;
-  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   public RelockDomainAction(
@@ -100,7 +98,6 @@ public class RelockDomainAction implements Runnable {
       @Config("supportEmail") String supportEmail,
       SendEmailService sendEmailService,
       DomainLockUtils domainLockUtils,
-      CloudTasksUtils cloudTasksUtils,
       Response response) {
     this.oldUnlockRevisionId = oldUnlockRevisionId;
     this.previousAttempts = previousAttempts;
@@ -110,7 +107,6 @@ public class RelockDomainAction implements Runnable {
     this.sendEmailService = sendEmailService;
     this.domainLockUtils = domainLockUtils;
     this.response = response;
-    this.cloudTasksUtils = cloudTasksUtils;
   }
 
   @Override
@@ -246,8 +242,7 @@ public class RelockDomainAction implements Runnable {
       }
     }
     Duration timeBeforeRetry = previousAttempts < ATTEMPTS_BEFORE_SLOWDOWN ? TEN_MINUTES : ONE_HOUR;
-    domainLockUtils.enqueueDomainRelock(
-        timeBeforeRetry, oldUnlockRevisionId, previousAttempts + 1, cloudTasksUtils);
+    domainLockUtils.enqueueDomainRelock(timeBeforeRetry, oldUnlockRevisionId, previousAttempts + 1);
   }
 
   private void sendSuccessEmail(RegistryLock oldLock) {

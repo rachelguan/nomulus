@@ -35,7 +35,6 @@ import google.registry.model.reporting.HistoryEntry;
 import google.registry.model.tld.Registry;
 import google.registry.model.tld.RegistryLockDao;
 import google.registry.request.Action.Service;
-import google.registry.util.Clock;
 import google.registry.util.CloudTasksUtils;
 import google.registry.util.StringGenerator;
 import java.util.Optional;
@@ -58,16 +57,16 @@ public final class DomainLockUtils {
 
   private final StringGenerator stringGenerator;
   private final String registryAdminRegistrarId;
-  private Clock clock;
+  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   public DomainLockUtils(
       @Named("base58StringGenerator") StringGenerator stringGenerator,
       @Config("registryAdminClientId") String registryAdminRegistrarId,
-      Clock clock) {
+      CloudTasksUtils cloudTasksUtils) {
     this.stringGenerator = stringGenerator;
     this.registryAdminRegistrarId = registryAdminRegistrarId;
-    this.clock = clock;
+    this.cloudTasksUtils = cloudTasksUtils;
   }
 
   /**
@@ -127,8 +126,7 @@ public final class DomainLockUtils {
   }
 
   /** Verifies and applies the unlock request previously requested by a user. */
-  public RegistryLock verifyAndApplyUnlock(
-      String verificationCode, boolean isAdmin, CloudTasksUtils cloudTasksUtils) {
+  public RegistryLock verifyAndApplyUnlock(String verificationCode, boolean isAdmin) {
     RegistryLock lock =
         jpaTm()
             .transact(
@@ -155,7 +153,7 @@ public final class DomainLockUtils {
                   return newLock;
                 });
     // Submit relock outside of the transaction to make sure that it fully succeeded
-    submitRelockIfNecessary(lock, cloudTasksUtils);
+    submitRelockIfNecessary(lock);
     return lock;
   }
 
@@ -188,11 +186,7 @@ public final class DomainLockUtils {
    * <p>This should only be used for admin actions, e.g. Nomulus tool commands.
    */
   public RegistryLock administrativelyApplyUnlock(
-      String domainName,
-      String registrarId,
-      boolean isAdmin,
-      Optional<Duration> relockDuration,
-      CloudTasksUtils cloudTasksUtils) {
+      String domainName, String registrarId, boolean isAdmin, Optional<Duration> relockDuration) {
     RegistryLock lock =
         jpaTm()
             .transact(
@@ -207,13 +201,13 @@ public final class DomainLockUtils {
                   return result;
                 });
     // Submit relock outside of the transaction to make sure that it fully succeeded
-    submitRelockIfNecessary(lock, cloudTasksUtils);
+    submitRelockIfNecessary(lock);
     return lock;
   }
 
-  private void submitRelockIfNecessary(RegistryLock lock, CloudTasksUtils cloudTasksUtils) {
+  private void submitRelockIfNecessary(RegistryLock lock) {
     if (lock.getRelockDuration().isPresent()) {
-      enqueueDomainRelock(lock, cloudTasksUtils);
+      enqueueDomainRelock(lock);
     }
   }
 
@@ -222,20 +216,16 @@ public final class DomainLockUtils {
    *
    * <p>Note: the relockDuration must be present on the lock object.
    */
-  public void enqueueDomainRelock(RegistryLock lock, CloudTasksUtils cloudTasksUtils) {
+  public void enqueueDomainRelock(RegistryLock lock) {
     checkArgument(
         lock.getRelockDuration().isPresent(),
         "Lock with ID %s not configured for relock",
         lock.getRevisionId());
-    enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0, cloudTasksUtils);
+    enqueueDomainRelock(lock.getRelockDuration().get(), lock.getRevisionId(), 0);
   }
 
   /** Enqueues a task to asynchronously re-lock a registry-locked domain after it was unlocked. */
-  public void enqueueDomainRelock(
-      Duration countdown,
-      long lockRevisionId,
-      int previousAttempts,
-      CloudTasksUtils cloudTasksUtils) {
+  public void enqueueDomainRelock(Duration countdown, long lockRevisionId, int previousAttempts) {
     cloudTasksUtils.enqueue(
         QUEUE_ASYNC_ACTIONS,
         cloudTasksUtils.createPostTaskWithDelay(

@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.RegistryLock;
 import google.registry.model.registrar.Registrar.Type;
+import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DeterministicStringGenerator;
 import google.registry.util.StringGenerator.Alphabets;
 import java.util.ArrayList;
@@ -49,7 +50,9 @@ class UnlockDomainCommandTest extends CommandTestCase<UnlockDomainCommand> {
     command.registryAdminClientId = "adminreg";
     command.domainLockUtils =
         new DomainLockUtils(
-            new DeterministicStringGenerator(Alphabets.BASE_58), "adminreg", fakeClock);
+            new DeterministicStringGenerator(Alphabets.BASE_58),
+            "adminreg",
+            new CloudTasksHelper(fakeClock).getTestCloudTasksUtils());
   }
 
   private DomainBase persistLockedDomain(String domainName, String registrarId) {
