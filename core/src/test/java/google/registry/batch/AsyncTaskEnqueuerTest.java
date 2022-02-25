@@ -22,12 +22,8 @@ import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_ACTIONS;
 import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_DELETE;
 import static google.registry.batch.AsyncTaskEnqueuer.QUEUE_ASYNC_HOST_RENAME;
 import static google.registry.testing.DatabaseHelper.persistActiveContact;
-import static google.registry.testing.TaskQueueHelper.assertNoTasksEnqueued;
-import static google.registry.testing.TaskQueueHelper.assertTasksEnqueued;
 import static google.registry.testing.TestLogHandlerUtils.assertLogMessage;
-import static org.joda.time.Duration.standardHours;
 import static org.joda.time.Duration.standardSeconds;
-import static org.mockito.Mockito.when;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSortedSet;
@@ -39,7 +35,6 @@ import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeSleeper;
 import google.registry.testing.InjectExtension;
-import google.registry.testing.TaskQueueHelper;
 import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.CapturingLogHandler;
 import google.registry.util.CloudTasksUtils;
@@ -91,7 +86,6 @@ public class AsyncTaskEnqueuerTest {
       FakeClock clock,
       Duration asyncDeleteDelay) {
     return new AsyncTaskEnqueuer(
-        getQueue(QUEUE_ASYNC_ACTIONS),
         getQueue(QUEUE_ASYNC_DELETE),
         getQueue(QUEUE_ASYNC_HOST_RENAME),
         asyncDeleteDelay,
@@ -103,7 +97,6 @@ public class AsyncTaskEnqueuerTest {
   public static AsyncTaskEnqueuer createForTesting(
       AppEngineServiceUtils appEngineServiceUtils, FakeClock clock, Duration asyncDeleteDelay) {
     return new AsyncTaskEnqueuer(
-        getQueue(QUEUE_ASYNC_ACTIONS),
         getQueue(QUEUE_ASYNC_DELETE),
         getQueue(QUEUE_ASYNC_HOST_RENAME),
         asyncDeleteDelay,

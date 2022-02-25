@@ -62,7 +62,6 @@ public final class AsyncTaskEnqueuer {
   private static final Duration MAX_ASYNC_ETA = Duration.standardDays(30);
 
   private final Duration asyncDeleteDelay;
-  private final Queue asyncActionsPushQueue;
   private final Queue asyncDeletePullQueue;
   private final Queue asyncDnsRefreshPullQueue;
   private final AppEngineServiceUtils appEngineServiceUtils;
@@ -71,15 +70,12 @@ public final class AsyncTaskEnqueuer {
 
   @Inject
   public AsyncTaskEnqueuer(
-      // TODO: (b/220926392) remove QUEUE_AYNSC_ACTIONS after PR#1519 is merged
-      @Named(QUEUE_ASYNC_ACTIONS) Queue asyncActionsPushQueue,
       @Named(QUEUE_ASYNC_DELETE) Queue asyncDeletePullQueue,
       @Named(QUEUE_ASYNC_HOST_RENAME) Queue asyncDnsRefreshPullQueue,
       @Config("asyncDeleteFlowMapreduceDelay") Duration asyncDeleteDelay,
       AppEngineServiceUtils appEngineServiceUtils,
       CloudTasksUtils cloudTasksUtils,
       Retrier retrier) {
-    this.asyncActionsPushQueue = asyncActionsPushQueue;
     this.asyncDeletePullQueue = asyncDeletePullQueue;
     this.asyncDnsRefreshPullQueue = asyncDnsRefreshPullQueue;
     this.asyncDeleteDelay = asyncDeleteDelay;

@@ -52,10 +52,10 @@ public class CloudTasksUtils implements Serializable {
   private static final Random random = new Random();
 
   private final Retrier retrier;
+  private final Clock clock;
   private final String projectId;
   private final String locationId;
   private final SerializableCloudTasksClient client;
-  private final Clock clock;
 
   public CloudTasksUtils(
       Retrier retrier,

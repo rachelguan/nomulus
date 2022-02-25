@@ -47,10 +47,7 @@ import google.registry.model.reporting.HistoryEntry;
 import google.registry.model.tld.Registry;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
-<<<<<<< HEAD
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
-=======
->>>>>>> ad0009e78 (Inject CloudTasksUtil to AsyncTasksEnqueuer)
 import google.registry.testing.DatabaseHelper;
 import google.registry.testing.DeterministicStringGenerator;
 import google.registry.testing.DualDatabaseTest;
@@ -105,13 +102,7 @@ public final class DomainLockUtilsTest {
         new DomainLockUtils(
             new DeterministicStringGenerator(Alphabets.BASE_58),
             "adminreg",
-<<<<<<< HEAD
             cloudTasksHelper.getTestCloudTasksUtils());
-=======
-            AsyncTaskEnqueuerTest.createForTesting(
-                appEngineServiceUtils, new CloudTasksHelper(clock).getTestCloudTasksUtils(),
-                clock, standardSeconds(90)));
->>>>>>> ad0009e78 (Inject CloudTasksUtil to AsyncTasksEnqueuer)
   }
 
   @TestOfyAndSql
