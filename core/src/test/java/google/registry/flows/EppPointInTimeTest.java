@@ -34,7 +34,6 @@ import google.registry.model.domain.DomainBase;
 import google.registry.model.ofy.Ofy;
 import google.registry.monitoring.whitebox.EppMetric;
 import google.registry.testing.AppEngineExtension;
-import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.DualDatabaseTest;
 import google.registry.testing.EppLoader;
 import google.registry.testing.FakeClock;
@@ -73,9 +72,7 @@ class EppPointInTimeTest {
     SessionMetadata sessionMetadata = new HttpSessionMetadata(new FakeHttpSession());
     sessionMetadata.setRegistrarId("TheRegistrar");
     DaggerEppTestComponent.builder()
-        .fakesAndMocksModule(
-            FakesAndMocksModule.create(
-                EppMetric.builderForRequest(clock), new CloudTasksHelper(clock)))
+        .fakesAndMocksModule(FakesAndMocksModule.create(clock))
         .build()
         .startRequest()
         .flowComponentBuilder()

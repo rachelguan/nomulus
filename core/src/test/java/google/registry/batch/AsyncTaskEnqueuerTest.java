@@ -73,34 +73,24 @@ public class AsyncTaskEnqueuerTest {
   void beforeEach() {
     JdkLoggerConfig.getConfig(AsyncTaskEnqueuer.class).addHandler(logHandler);
     asyncTaskEnqueuer =
-        createForTesting(
-            appEngineServiceUtils,
-            cloudTasksHelper.getTestCloudTasksUtils(),
-            clock,
-            standardSeconds(90));
+        createForTesting(cloudTasksHelper.getTestCloudTasksUtils(), clock, standardSeconds(90));
   }
 
   public static AsyncTaskEnqueuer createForTesting(
-      AppEngineServiceUtils appEngineServiceUtils,
-      CloudTasksUtils cloudTasksUtils,
-      FakeClock clock,
-      Duration asyncDeleteDelay) {
+      CloudTasksUtils cloudTasksUtils, FakeClock clock, Duration asyncDeleteDelay) {
     return new AsyncTaskEnqueuer(
         getQueue(QUEUE_ASYNC_DELETE),
         getQueue(QUEUE_ASYNC_HOST_RENAME),
         asyncDeleteDelay,
-        appEngineServiceUtils,
         cloudTasksUtils,
         new Retrier(new FakeSleeper(clock), 1));
   }
 
-  public static AsyncTaskEnqueuer createForTesting(
-      AppEngineServiceUtils appEngineServiceUtils, FakeClock clock, Duration asyncDeleteDelay) {
+  public static AsyncTaskEnqueuer createForTesting(FakeClock clock, Duration asyncDeleteDelay) {
     return new AsyncTaskEnqueuer(
         getQueue(QUEUE_ASYNC_DELETE),
         getQueue(QUEUE_ASYNC_HOST_RENAME),
         asyncDeleteDelay,
-        appEngineServiceUtils,
         null,
         new Retrier(new FakeSleeper(clock), 1));
   }

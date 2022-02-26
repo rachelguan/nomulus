@@ -32,7 +32,6 @@ import google.registry.model.eppcommon.Trid;
 import google.registry.model.host.HostResource;
 import google.registry.persistence.VKey;
 import google.registry.request.Action.Service;
-import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.CloudTasksUtils;
 import google.registry.util.Retrier;
 import javax.inject.Inject;
@@ -64,7 +63,6 @@ public final class AsyncTaskEnqueuer {
   private final Duration asyncDeleteDelay;
   private final Queue asyncDeletePullQueue;
   private final Queue asyncDnsRefreshPullQueue;
-  private final AppEngineServiceUtils appEngineServiceUtils;
   private CloudTasksUtils cloudTasksUtils;
   private final Retrier retrier;
 
@@ -73,13 +71,11 @@ public final class AsyncTaskEnqueuer {
       @Named(QUEUE_ASYNC_DELETE) Queue asyncDeletePullQueue,
       @Named(QUEUE_ASYNC_HOST_RENAME) Queue asyncDnsRefreshPullQueue,
       @Config("asyncDeleteFlowMapreduceDelay") Duration asyncDeleteDelay,
-      AppEngineServiceUtils appEngineServiceUtils,
       CloudTasksUtils cloudTasksUtils,
       Retrier retrier) {
     this.asyncDeletePullQueue = asyncDeletePullQueue;
     this.asyncDnsRefreshPullQueue = asyncDnsRefreshPullQueue;
     this.asyncDeleteDelay = asyncDeleteDelay;
-    this.appEngineServiceUtils = appEngineServiceUtils;
     this.cloudTasksUtils = cloudTasksUtils;
     this.retrier = retrier;
   }

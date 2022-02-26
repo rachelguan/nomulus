@@ -58,32 +58,26 @@ public interface EppTestComponent {
     private AsyncTaskEnqueuer asyncTaskEnqueuer;
     private DnsQueue dnsQueue;
     private DomainFlowTmchUtils domainFlowTmchUtils;
+
     private EppMetric.Builder metricBuilder;
     private FakeClock clock;
     private FakeLockHandler lockHandler;
     private AppEngineServiceUtils appEngineServiceUtils;
     private Sleeper sleeper;
+    private CloudTasksHelper cloudTasksHelper;
 
-    public static FakesAndMocksModule create() {
-      FakeClock clock = new FakeClock();
-      return create(EppMetric.builderForRequest(clock), new CloudTasksHelper(clock));
+    public CloudTasksHelper getCloudTasksHelper() {
+      return cloudTasksHelper;
     }
 
-    public static FakesAndMocksModule create(
-        EppMetric.Builder metricBuilder, CloudTasksHelper cloudTasksHelper) {
-      FakeClock clock = cloudTasksHelper.getClock();
-      return create(
-          metricBuilder,
-          new TmchXmlSignature(new TmchCertificateAuthority(TmchCaMode.PILOT, clock)),
-          cloudTasksHelper);
+    public EppMetric.Builder getMetricBuilder() {
+      return metricBuilder;
     }
 
-    public static FakesAndMocksModule create(
-        EppMetric.Builder eppMetricBuilder,
-        TmchXmlSignature tmchXmlSignature,
-        CloudTasksHelper cloudTasksHelper) {
+    public static FakesAndMocksModule create(FakeClock clock) {
       FakesAndMocksModule instance = new FakesAndMocksModule();
       AppEngineServiceUtils appEngineServiceUtils = mock(AppEngineServiceUtils.class);
+      CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
       when(appEngineServiceUtils.getServiceHostname("backend")).thenReturn("backend.hostname.fake");
       instance.asyncTaskEnqueuer =
           AsyncTaskEnqueuerTest.createForTesting(
@@ -92,12 +86,15 @@ public interface EppTestComponent {
               cloudTasksHelper.getClock(),
               standardSeconds(90));
       instance.clock = cloudTasksHelper.getClock();
-      instance.domainFlowTmchUtils = new DomainFlowTmchUtils(tmchXmlSignature);
+      instance.domainFlowTmchUtils =
+          new DomainFlowTmchUtils(
+              new TmchXmlSignature(new TmchCertificateAuthority(TmchCaMode.PILOT, clock)));
       instance.sleeper = new FakeSleeper(instance.clock);
       instance.dnsQueue = DnsQueue.create();
-      instance.metricBuilder = eppMetricBuilder;
+      instance.metricBuilder = EppMetric.builderForRequest(clock);
       instance.appEngineServiceUtils = appEngineServiceUtils;
       instance.lockHandler = new FakeLockHandler(true);
+      instance.cloudTasksHelper = cloudTasksHelper;
       return instance;
     }
 

@@ -78,7 +78,7 @@ public class ResaveEntityActionTest {
     inject.setStaticField(Ofy.class, "clock", clock);
     asyncTaskEnqueuer =
         AsyncTaskEnqueuerTest.createForTesting(
-            appEngineServiceUtils, cloudTasksHelper.getTestCloudTasksUtils(), clock, Duration.ZERO);
+            cloudTasksHelper.getTestCloudTasksUtils(), clock, Duration.ZERO);
     createTld("tld");
   }
 
