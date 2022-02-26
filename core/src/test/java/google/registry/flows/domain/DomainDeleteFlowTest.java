@@ -65,7 +65,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.protobuf.util.Timestamps;
 import google.registry.batch.ResaveEntityAction;
 import google.registry.flows.EppException;
 import google.registry.flows.EppException.ReadOnlyModeEppException;
@@ -102,7 +101,6 @@ import google.registry.model.tld.Registry.TldType;
 import google.registry.model.transfer.DomainTransferData;
 import google.registry.model.transfer.TransferResponse;
 import google.registry.model.transfer.TransferStatus;
-import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.DatabaseHelper;
 import google.registry.testing.DualDatabaseTest;
@@ -325,7 +323,7 @@ class DomainDeleteFlowTest extends ResourceFlowTestCase<DomainDeleteFlow, Domain
             .param(PARAM_RESOURCE_KEY, domain.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())
             .param(PARAM_RESAVE_TIMES, clock.nowUtc().plusDays(5).toString())
-            .scheduleTime(Timestamps.fromMillis(clock.nowUtc().plus(when).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(when)));
   }
 
   @TestOfyAndSql
@@ -579,9 +577,6 @@ class DomainDeleteFlowTest extends ResourceFlowTestCase<DomainDeleteFlow, Domain
     setUpAutorenewGracePeriod();
     clock.advanceOneMilli();
     runFlowAssertResponse(loadFile("domain_delete_response_autorenew_fee.xml", FEE_11_MAP));
-    cloudTasksHelper.assertTasksEnqueued(
-        QUEUE_ASYNC_ACTIONS,
-        new CloudTasksHelper.TaskMatcher().url(ResaveEntityAction.PATH).service("backend"));
   }
 
   @TestOfyAndSql

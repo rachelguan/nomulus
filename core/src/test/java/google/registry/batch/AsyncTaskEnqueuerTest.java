@@ -27,7 +27,6 @@ import static org.joda.time.Duration.standardSeconds;
 
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.protobuf.util.Timestamps;
 import google.registry.model.contact.ContactResource;
 import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
@@ -35,7 +34,6 @@ import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
 import google.registry.testing.FakeSleeper;
 import google.registry.testing.InjectExtension;
-import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.CapturingLogHandler;
 import google.registry.util.CloudTasksUtils;
 import google.registry.util.JdkLoggerConfig;
@@ -47,7 +45,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -61,8 +58,6 @@ public class AsyncTaskEnqueuerTest {
       AppEngineExtension.builder().withDatastoreAndCloudSql().withTaskQueue().build();
 
   @RegisterExtension public final InjectExtension inject = new InjectExtension();
-
-  @Mock private AppEngineServiceUtils appEngineServiceUtils;
 
   private AsyncTaskEnqueuer asyncTaskEnqueuer;
   private final CapturingLogHandler logHandler = new CapturingLogHandler();
@@ -86,15 +81,6 @@ public class AsyncTaskEnqueuerTest {
         new Retrier(new FakeSleeper(clock), 1));
   }
 
-  public static AsyncTaskEnqueuer createForTesting(FakeClock clock, Duration asyncDeleteDelay) {
-    return new AsyncTaskEnqueuer(
-        getQueue(QUEUE_ASYNC_DELETE),
-        getQueue(QUEUE_ASYNC_HOST_RENAME),
-        asyncDeleteDelay,
-        null,
-        new Retrier(new FakeSleeper(clock), 1));
-  }
-
   @Test
   void test_enqueueAsyncResave_success() {
     ContactResource contact = persistActiveContact("jd23456");
@@ -109,8 +95,7 @@ public class AsyncTaskEnqueuerTest {
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())
-            .scheduleTime(
-                Timestamps.fromMillis(clock.nowUtc().plus(Duration.standardDays(5)).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(Duration.standardDays(5))));
   }
 
   @Test
@@ -131,9 +116,7 @@ public class AsyncTaskEnqueuerTest {
             .param(PARAM_RESOURCE_KEY, contact.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, now.toString())
             .param(PARAM_RESAVE_TIMES, "2015-05-20T14:34:56.000Z,2015-05-21T15:34:56.000Z")
-            .scheduleTime(
-                Timestamps.fromMillis(
-                    clock.nowUtc().plus(Duration.standardHours(24)).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(Duration.standardHours(24))));
   }
 
   @MockitoSettings(strictness = Strictness.LENIENT)

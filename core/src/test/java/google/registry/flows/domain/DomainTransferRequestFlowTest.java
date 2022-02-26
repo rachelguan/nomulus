@@ -57,7 +57,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.protobuf.util.Timestamps;
 import google.registry.batch.ResaveEntityAction;
 import google.registry.flows.EppException;
 import google.registry.flows.EppException.ReadOnlyModeEppException;
@@ -523,9 +522,7 @@ class DomainTransferRequestFlowTest
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, domain.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, clock.nowUtc().toString())
-            .scheduleTime(
-                Timestamps.fromMillis(
-                    clock.nowUtc().plus(registry.getAutomaticTransferLength()).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(registry.getAutomaticTransferLength())));
   }
 
   private void doSuccessfulTest(

@@ -87,7 +87,6 @@ public abstract class FlowTestCase<F extends Flow> {
   protected TransportCredentials credentials = new PasswordOnlyTransportCredentials();
   protected EppRequestSource eppRequestSource = EppRequestSource.UNIT_TEST;
   protected CloudTasksHelper cloudTasksHelper;
-  private FakesAndMocksModule fakesAndMocksModule;
 
   private EppMetric.Builder eppMetricBuilder;
 
@@ -228,11 +227,10 @@ public abstract class FlowTestCase<F extends Flow> {
     // Assert that the xml triggers the flow we expect.
     assertThat(FlowPicker.getFlowClass(eppLoader.getEpp()))
         .isEqualTo(new TypeInstantiator<F>(getClass()){}.getExactType());
+
+    FakesAndMocksModule fakesAndMocksModule = FakesAndMocksModule.create(clock);
+    cloudTasksHelper = fakesAndMocksModule.getCloudTasksHelper();
     // Run the flow.
-    if (fakesAndMocksModule == null) {
-      fakesAndMocksModule = FakesAndMocksModule.create(clock);
-      cloudTasksHelper = fakesAndMocksModule.getCloudTasksHelper();
-    }
     return DaggerEppTestComponent.builder()
         .fakesAndMocksModule(fakesAndMocksModule)
         .build()

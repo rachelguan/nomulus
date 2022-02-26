@@ -15,8 +15,6 @@
 package google.registry.flows;
 
 import static org.joda.time.Duration.standardSeconds;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import dagger.Component;
 import dagger.Module;
@@ -39,7 +37,6 @@ import google.registry.testing.FakeLockHandler;
 import google.registry.testing.FakeSleeper;
 import google.registry.tmch.TmchCertificateAuthority;
 import google.registry.tmch.TmchXmlSignature;
-import google.registry.util.AppEngineServiceUtils;
 import google.registry.util.Clock;
 import google.registry.util.Sleeper;
 import javax.inject.Singleton;
@@ -58,11 +55,9 @@ public interface EppTestComponent {
     private AsyncTaskEnqueuer asyncTaskEnqueuer;
     private DnsQueue dnsQueue;
     private DomainFlowTmchUtils domainFlowTmchUtils;
-
     private EppMetric.Builder metricBuilder;
     private FakeClock clock;
     private FakeLockHandler lockHandler;
-    private AppEngineServiceUtils appEngineServiceUtils;
     private Sleeper sleeper;
     private CloudTasksHelper cloudTasksHelper;
 
@@ -76,23 +71,17 @@ public interface EppTestComponent {
 
     public static FakesAndMocksModule create(FakeClock clock) {
       FakesAndMocksModule instance = new FakesAndMocksModule();
-      AppEngineServiceUtils appEngineServiceUtils = mock(AppEngineServiceUtils.class);
       CloudTasksHelper cloudTasksHelper = new CloudTasksHelper(clock);
-      when(appEngineServiceUtils.getServiceHostname("backend")).thenReturn("backend.hostname.fake");
       instance.asyncTaskEnqueuer =
           AsyncTaskEnqueuerTest.createForTesting(
-              appEngineServiceUtils,
-              cloudTasksHelper.getTestCloudTasksUtils(),
-              cloudTasksHelper.getClock(),
-              standardSeconds(90));
-      instance.clock = cloudTasksHelper.getClock();
+              cloudTasksHelper.getTestCloudTasksUtils(), clock, standardSeconds(90));
+      instance.clock = clock;
       instance.domainFlowTmchUtils =
           new DomainFlowTmchUtils(
               new TmchXmlSignature(new TmchCertificateAuthority(TmchCaMode.PILOT, clock)));
       instance.sleeper = new FakeSleeper(instance.clock);
       instance.dnsQueue = DnsQueue.create();
       instance.metricBuilder = EppMetric.builderForRequest(clock);
-      instance.appEngineServiceUtils = appEngineServiceUtils;
       instance.lockHandler = new FakeLockHandler(true);
       instance.cloudTasksHelper = cloudTasksHelper;
       return instance;
@@ -131,11 +120,6 @@ public interface EppTestComponent {
     @Provides
     EppMetric.Builder provideMetrics() {
       return metricBuilder;
-    }
-
-    @Provides
-    AppEngineServiceUtils provideAppEngineServiceUtils() {
-      return appEngineServiceUtils;
     }
 
     @Provides

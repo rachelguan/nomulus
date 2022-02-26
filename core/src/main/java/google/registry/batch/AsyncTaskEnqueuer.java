@@ -63,8 +63,9 @@ public final class AsyncTaskEnqueuer {
   private final Duration asyncDeleteDelay;
   private final Queue asyncDeletePullQueue;
   private final Queue asyncDnsRefreshPullQueue;
-  private CloudTasksUtils cloudTasksUtils;
   private final Retrier retrier;
+
+  private CloudTasksUtils cloudTasksUtils;
 
   @Inject
   public AsyncTaskEnqueuer(

@@ -31,7 +31,6 @@ import static org.mockito.Mockito.verify;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.protobuf.util.Timestamps;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.GracePeriod;
 import google.registry.model.domain.rgp.GracePeriodStatus;
@@ -153,6 +152,6 @@ public class ResaveEntityActionTest {
             .header("content-type", "application/x-www-form-urlencoded")
             .param(PARAM_RESOURCE_KEY, resavedDomain.createVKey().stringify())
             .param(PARAM_REQUESTED_TIME, requestedTime.toString())
-            .scheduleTime(Timestamps.fromMillis(clock.nowUtc().plus(standardDays(5)).getMillis())));
+            .scheduleTime(clock.nowUtc().plus(standardDays(5))));
   }
 }

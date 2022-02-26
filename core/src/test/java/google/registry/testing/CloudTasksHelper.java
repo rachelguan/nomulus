@@ -97,12 +97,6 @@ public class CloudTasksHelper implements Serializable {
   private final int instanceId = nextInstanceId.getAndIncrement();
   private final CloudTasksUtils cloudTasksUtils;
 
-  public FakeClock getClock() {
-    return clock;
-  }
-
-  private final FakeClock clock;
-
   public CloudTasksHelper(FakeClock clock) {
     this.cloudTasksUtils =
         new CloudTasksUtils(
@@ -111,7 +105,6 @@ public class CloudTasksHelper implements Serializable {
             PROJECT_ID,
             LOCATION_ID,
             new FakeCloudTasksClient());
-    this.clock = clock;
     testTasks.put(instanceId, Multimaps.synchronizedListMultimap(LinkedListMultimap.create()));
   }
 

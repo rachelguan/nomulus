@@ -261,7 +261,6 @@ public final class DomainLockUtilsTest {
     assertThat(lock.getRelockDuration()).isEqualTo(Optional.of(standardDays(1)));
   }
 
-
   @TestOfyAndSql
   void testSuccess_unlock_relockSubmitted() {
     domainLockUtils.administrativelyApplyLock(DOMAIN_NAME, "TheRegistrar", POC_ID, false);
