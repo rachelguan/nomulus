@@ -486,15 +486,22 @@ sslCertificateValidation:
   # The minimum number of days between two successive expiring notification emails.
   expirationWarningIntervalDays: 15
   # Text for expiring certificate notification email subject.
-  expirationWarningEmailSubjectText: "Expiration Warning Email"
+  expirationWarningEmailSubjectText: "Expiring SSL certificate for Example Registry EPP connection"
   # Text for expiring certificate notification email body that accepts 4 parameters:
   # registrar name, certificate type, expiration date and registrar id, respectively.
   expirationWarningEmailBodyText: |
     Dear %1$s,
 
-    We would like to inform you that your %2$s certificate will expire at %3$s.
+    We would like to inform you that your %2$s SSL certificate will expire at %3$s. Please take note that using expired certificates will prevent successful Registry login.
 
-    Please navigate to support and login using your %4$s.
+    Kindly update your production account certificate within the support console using the following steps:
+
+      1. Navigate to support.registry.example and login using your %4$s@registry.example credentials.
+      2. Select “Settings > Security” from the left navigation bar.
+      3. Click “Edit” on the top left corner.
+      4. Enter your full certificate string in the box.
+      5. Click “Save”.
+
 
     Regards,
     Example Registry
