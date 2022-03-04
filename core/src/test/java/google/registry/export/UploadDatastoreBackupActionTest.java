@@ -16,9 +16,14 @@ package google.registry.export;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static google.registry.export.BigqueryPollJobAction.CHAINED_TASK_QUEUE_HEADER;
 import static google.registry.export.BigqueryPollJobAction.JOB_ID_HEADER;
 import static google.registry.export.BigqueryPollJobAction.PROJECT_ID_HEADER;
+import static google.registry.export.UpdateSnapshotViewAction.UPDATE_SNAPSHOT_DATASET_ID_PARAM;
+import static google.registry.export.UpdateSnapshotViewAction.UPDATE_SNAPSHOT_KIND_PARAM;
+import static google.registry.export.UpdateSnapshotViewAction.UPDATE_SNAPSHOT_TABLE_ID_PARAM;
+import static google.registry.export.UpdateSnapshotViewAction.UPDATE_SNAPSHOT_VIEWNAME_PARAM;
 import static google.registry.export.UploadDatastoreBackupAction.BACKUP_DATASET;
 import static google.registry.export.UploadDatastoreBackupAction.getBackupInfoFileForKind;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,6 +39,7 @@ import com.google.api.services.bigquery.model.Dataset;
 import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobConfigurationLoad;
 import com.google.cloud.tasks.v2.HttpMethod;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.util.Timestamps;
 import google.registry.bigquery.CheckedBigquery;
@@ -42,7 +48,10 @@ import google.registry.testing.AppEngineExtension;
 import google.registry.testing.CloudTasksHelper;
 import google.registry.testing.CloudTasksHelper.TaskMatcher;
 import google.registry.testing.FakeClock;
+import google.registry.util.CloudTasksUtils;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +73,7 @@ public class UploadDatastoreBackupActionTest {
       mock(Bigquery.Datasets.Insert.class);
   private UploadDatastoreBackupAction action;
   private CloudTasksHelper cloudTasksHelper = new CloudTasksHelper();
+  private CloudTasksUtils cloudTasksUtils = cloudTasksHelper.getTestCloudTasksUtils();
 
   @BeforeEach
   void beforeEach() throws Exception {
@@ -163,6 +173,65 @@ public class UploadDatastoreBackupActionTest {
             .scheduleTime(
                 Timestamps.fromMillis(
                     action.clock.nowUtc().plus(BigqueryPollJobAction.POLL_COUNTDOWN).getMillis())));
+
+    // assert the chained task of each enqueud task is correct
+    assertThat(
+            cloudTasksHelper.getTestTasksFor(BigqueryPollJobAction.QUEUE).stream()
+                .map(
+                    testTask -> {
+                      try {
+                        return new ObjectInputStream(
+                                new ByteArrayInputStream(
+                                    testTask.getAppEngineHttpRequest().getBody().toByteArray()))
+                            .readObject();
+                      } catch (ClassNotFoundException | IOException e) {
+                        return null;
+                      }
+                    }))
+        .containsExactly(
+            cloudTasksHelper
+                .getTestCloudTasksUtils()
+                .createPostTask(
+                    UpdateSnapshotViewAction.PATH,
+                    "BACKEND",
+                    ImmutableMultimap.of(
+                        UPDATE_SNAPSHOT_DATASET_ID_PARAM,
+                        "datastore_backups",
+                        UPDATE_SNAPSHOT_TABLE_ID_PARAM,
+                        "2018_12_05T17_46_39_92612_one",
+                        UPDATE_SNAPSHOT_KIND_PARAM,
+                        "one",
+                        UPDATE_SNAPSHOT_VIEWNAME_PARAM,
+                        "latest_datastore_export")),
+            cloudTasksHelper
+                .getTestCloudTasksUtils()
+                .createPostTask(
+                    UpdateSnapshotViewAction.PATH,
+                    "BACKEND",
+                    ImmutableMultimap.of(
+                        UPDATE_SNAPSHOT_DATASET_ID_PARAM,
+                        "datastore_backups",
+                        UPDATE_SNAPSHOT_TABLE_ID_PARAM,
+                        "2018_12_05T17_46_39_92612_two",
+                        UPDATE_SNAPSHOT_KIND_PARAM,
+                        "two",
+                        UPDATE_SNAPSHOT_VIEWNAME_PARAM,
+                        "latest_datastore_export")),
+            cloudTasksHelper
+                .getTestCloudTasksUtils()
+                .createPostTask(
+                    UpdateSnapshotViewAction.PATH,
+                    "BACKEND",
+                    ImmutableMultimap.of(
+                        UPDATE_SNAPSHOT_DATASET_ID_PARAM,
+                        "datastore_backups",
+                        UPDATE_SNAPSHOT_TABLE_ID_PARAM,
+                        "2018_12_05T17_46_39_92612_three",
+                        UPDATE_SNAPSHOT_KIND_PARAM,
+                        "three",
+                        UPDATE_SNAPSHOT_VIEWNAME_PARAM,
+                        "latest_datastore_export")))
+        .inOrder();
   }
 
   @Test

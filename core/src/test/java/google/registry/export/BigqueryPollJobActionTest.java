@@ -105,7 +105,7 @@ public class BigqueryPollJobActionTest {
             .build();
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     new ObjectOutputStream(bytes).writeObject(chainedTask);
-    action.payload = bytes.toByteArray();
+    action.payload = ByteString.copyFrom(bytes.toByteArray());
 
     action.run();
     assertLogMessage(
@@ -154,7 +154,7 @@ public class BigqueryPollJobActionTest {
   void testFailure_badChainedTaskPayload() throws Exception {
     when(bigqueryJobsGet.execute()).thenReturn(
         new Job().setStatus(new JobStatus().setState("DONE")));
-    action.payload = "payload".getBytes(UTF_8);
+    action.payload = ByteString.copyFrom("payload".getBytes(UTF_8));
     BadRequestException thrown = assertThrows(BadRequestException.class, action::run);
     assertThat(thrown).hasMessageThat().contains("Cannot deserialize task from payload");
   }

@@ -21,6 +21,7 @@ import com.google.api.services.bigquery.model.Job;
 import com.google.api.services.bigquery.model.JobReference;
 import com.google.cloud.tasks.v2.Task;
 import com.google.common.flogger.FluentLogger;
+import com.google.protobuf.ByteString;
 import dagger.Lazy;
 import google.registry.request.Action;
 import google.registry.request.Header;
@@ -65,7 +66,9 @@ public class BigqueryPollJobAction implements Runnable {
   @Inject @Header(CHAINED_TASK_QUEUE_HEADER) Lazy<String> chainedQueueName;
   @Inject @Header(PROJECT_ID_HEADER) String projectId;
   @Inject @Header(JOB_ID_HEADER) String jobId;
-  @Inject @Payload byte[] payload;
+
+  @Inject @Payload ByteString payload;
+
   @Inject BigqueryPollJobAction() {}
 
   @Override
@@ -73,13 +76,15 @@ public class BigqueryPollJobAction implements Runnable {
     boolean jobOutcome =
         checkJobOutcome(); // Throws a NotModifiedException if the job hasn't completed.
     // If the job failed, do not enqueue the next step.
-    if (!jobOutcome || payload == null || payload.length == 0) {
+    if (!jobOutcome || payload == null || payload.size() == 0) {
       return;
     }
     // If there is a payload, it's a chained task, so enqueue it.
     Task task;
     try {
-      task = (Task) new ObjectInputStream(new ByteArrayInputStream(payload)).readObject();
+      task =
+          (Task)
+              new ObjectInputStream(new ByteArrayInputStream(payload.toByteArray())).readObject();
     } catch (ClassNotFoundException | IOException e) {
       throw new BadRequestException("Cannot deserialize task from payload", e);
     }
