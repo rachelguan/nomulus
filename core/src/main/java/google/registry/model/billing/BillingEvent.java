@@ -166,6 +166,12 @@ public abstract class BillingEvent extends ImmutableObject
   @Nullable
   Set<Flag> flags;
 
+  /** Whether the same price should always be used at renewal */
+  Boolean alwaysRenewAtSamePrice = false;
+
+  /** Whether the standard price should always be used at renewal */
+  Boolean alwaysRenewAtStandardPrice = false;
+
   @PostLoad
   void postLoad() {
     parent =
@@ -215,6 +221,14 @@ public abstract class BillingEvent extends ImmutableObject
 
   public ImmutableSet<Flag> getFlags() {
     return nullToEmptyImmutableCopy(flags);
+  }
+
+  public Boolean getAlwaysRenewAtSamePrice() {
+    return alwaysRenewAtSamePrice;
+  }
+
+  public Boolean getAlwaysRenewAtStandardPrice() {
+    return alwaysRenewAtStandardPrice;
   }
 
   /** Override Buildable.asBuilder() to give this method stronger typing. */
@@ -278,6 +292,16 @@ public abstract class BillingEvent extends ImmutableObject
 
     public B setParent(Key<DomainHistory> parentKey) {
       getInstance().parent = parentKey;
+      return thisCastToDerived();
+    }
+
+    public B setAlwaysRenewAtSamePrice(Boolean alwaysRenewAtSamePrice) {
+      getInstance().alwaysRenewAtSamePrice = alwaysRenewAtSamePrice;
+      return thisCastToDerived();
+    }
+
+    public B setAlwaysRenewAtStandardPrice(Boolean alwaysRenewAtStandardPrice) {
+      getInstance().alwaysRenewAtStandardPrice = alwaysRenewAtStandardPrice;
       return thisCastToDerived();
     }
 

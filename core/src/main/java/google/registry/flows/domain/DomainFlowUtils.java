@@ -539,12 +539,15 @@ public class DomainFlowUtils {
    * does not copy over the id of the current autorenew billing event.
    */
   public static BillingEvent.Recurring.Builder newAutorenewBillingEvent(DomainBase domain) {
-    return new BillingEvent.Recurring.Builder()
-        .setReason(Reason.RENEW)
-        .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
-        .setTargetId(domain.getDomainName())
-        .setRegistrarId(domain.getCurrentSponsorRegistrarId())
-        .setEventTime(domain.getRegistrationExpirationTime());
+    return tm().transact(
+            () ->
+                tm().loadByKey(domain.getAutorenewBillingEvent())
+                    .asBuilder()
+                    .setReason(Reason.RENEW)
+                    .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+                    .setTargetId(domain.getDomainName())
+                    .setRegistrarId(domain.getCurrentSponsorRegistrarId())
+                    .setEventTime(domain.getRegistrationExpirationTime()));
   }
 
   /**

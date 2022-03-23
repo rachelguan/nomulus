@@ -263,9 +263,9 @@ public final class DomainCreateFlow implements TransactionalFlow {
     // Superusers can create reserved domains, force creations on domains that require a claims
     // notice without specifying a claims key, ignore the registry phase, and override blocks on
     // registering premium domains.
+    boolean isValidReservedCreate = isValidReservedCreate(domainName, allocationToken);
     if (!isSuperuser) {
       checkAllowedAccessToTld(registrarId, registry.getTldStr());
-      boolean isValidReservedCreate = isValidReservedCreate(domainName, allocationToken);
       verifyIsGaOrIsSpecialCase(tldState, isAnchorTenant, isValidReservedCreate, hasSignedMarks);
       if (launchCreate.isPresent()) {
         verifyLaunchPhaseMatchesRegistryPhase(registry, launchCreate.get(), now);
@@ -324,7 +324,8 @@ public final class DomainCreateFlow implements TransactionalFlow {
             now);
     // Create a new autorenew billing event and poll message starting at the expiration time.
     BillingEvent.Recurring autorenewBillingEvent =
-        createAutorenewBillingEvent(domainHistoryKey, registrationExpirationTime);
+        createAutorenewBillingEvent(
+            domainHistoryKey, registrationExpirationTime, isAnchorTenant, isValidReservedCreate);
     PollMessage.Autorenew autorenewPollMessage =
         createAutorenewPollMessage(domainHistoryKey, registrationExpirationTime);
     ImmutableSet.Builder<ImmutableObject> entitiesToSave = new ImmutableSet.Builder<>();
@@ -537,22 +538,32 @@ public final class DomainCreateFlow implements TransactionalFlow {
                 isAnchorTenant
                     ? registry.getAnchorTenantAddGracePeriodLength()
                     : registry.getAddGracePeriodLength()))
-        .setFlags(flagsBuilder.build())
         .setParent(domainHistoryKey)
+        .setFlags(flagsBuilder.build())
         .build();
   }
 
   private Recurring createAutorenewBillingEvent(
-      Key<DomainHistory> domainHistoryKey, DateTime registrationExpirationTime) {
-    return new BillingEvent.Recurring.Builder()
-        .setReason(Reason.RENEW)
-        .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
-        .setTargetId(targetId)
-        .setRegistrarId(registrarId)
-        .setEventTime(registrationExpirationTime)
-        .setRecurrenceEndTime(END_OF_TIME)
-        .setParent(domainHistoryKey)
-        .build();
+      Key<DomainHistory> domainHistoryKey,
+      DateTime registrationExpirationTime,
+      Boolean isAnchorTenant,
+      Boolean isValidReservedCreate) {
+    BillingEvent.Recurring.Builder recurringBillingEventBuilder =
+        new BillingEvent.Recurring.Builder()
+            .setReason(Reason.RENEW)
+            .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+            .setTargetId(targetId)
+            .setRegistrarId(registrarId)
+            .setEventTime(registrationExpirationTime)
+            .setRecurrenceEndTime(END_OF_TIME)
+            .setParent(domainHistoryKey);
+    if (isAnchorTenant) {
+      recurringBillingEventBuilder.setAlwaysRenewAtStandardPrice(true);
+    }
+    if (isValidReservedCreate) {
+      recurringBillingEventBuilder.setAlwaysRenewAtSamePrice(true);
+    }
+    return recurringBillingEventBuilder.build();
   }
 
   private Autorenew createAutorenewPollMessage(
