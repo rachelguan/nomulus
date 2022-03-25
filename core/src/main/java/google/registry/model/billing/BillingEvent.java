@@ -129,6 +129,16 @@ public abstract class BillingEvent extends ImmutableObject
     SYNTHETIC
   }
 
+  /** The expected renewal behaviors that can be applied to billing recurrences. */
+  public enum RenewalPriceBehavior {
+    /** The default price behavior to renew a domain. */
+    DEFAULT_PRICE,
+    /** The price behavior to renew a domain for an anchor tenant. */
+    STANDARD_PRICE,
+    /** The price behavior to renew a domain for an internal registration. */
+    DISCOUNTED_PRICE
+  }
+
   /** Entity id. */
   @Id @javax.persistence.Id Long id;
 
@@ -522,6 +532,9 @@ public abstract class BillingEvent extends ImmutableObject
         @javax.persistence.Index(columnList = "eventTime"),
         @javax.persistence.Index(columnList = "domainRepoId"),
         @javax.persistence.Index(columnList = "recurrenceEndTime"),
+        @javax.persistence.Index(columnList = "renewalPriceBehavior"),
+        @javax.persistence.Index(columnList = "renewalPriceCurrency"),
+        @javax.persistence.Index(columnList = "renewalPriceAmount"),
         @javax.persistence.Index(columnList = "recurrence_time_of_year")
       })
   @AttributeOverride(name = "id", column = @Column(name = "billing_recurrence_id"))
@@ -555,12 +568,28 @@ public abstract class BillingEvent extends ImmutableObject
     })
     TimeOfYear recurrenceTimeOfYear;
 
+    /** The renewal price for internal registrations. */
+    @Type(type = JodaMoneyType.TYPE_NAME)
+    @Columns(
+        columns = {@Column(name = "renewalPriceAmount"), @Column(name = "renewalPriceCurrency")})
+    Money renewalPrice;
+
+    RenewalPriceBehavior renewalPriceBehavior;
+
     public DateTime getRecurrenceEndTime() {
       return recurrenceEndTime;
     }
 
     public TimeOfYear getRecurrenceTimeOfYear() {
       return recurrenceTimeOfYear;
+    }
+
+    public RenewalPriceBehavior getRenewalPriceBehavior() {
+      return renewalPriceBehavior;
+    }
+
+    public Money getRenewalPrice() {
+      return renewalPrice;
     }
 
     @Override
@@ -588,6 +617,16 @@ public abstract class BillingEvent extends ImmutableObject
 
       public Builder setRecurrenceEndTime(DateTime recurrenceEndTime) {
         getInstance().recurrenceEndTime = recurrenceEndTime;
+        return this;
+      }
+
+      public Builder setRenewalPriceBehavior(RenewalPriceBehavior renewalPriceBehavior) {
+        getInstance().renewalPriceBehavior = renewalPriceBehavior;
+        return this;
+      }
+
+      public Builder setRenewalPrice(Money renewalPrice) {
+        getInstance().renewalPrice = renewalPrice;
         return this;
       }
 
