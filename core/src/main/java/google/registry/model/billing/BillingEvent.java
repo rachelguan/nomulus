@@ -126,7 +126,7 @@ public abstract class BillingEvent extends ImmutableObject
      * This flag will be added to any {@link OneTime} events that are created via, e.g., an
      * automated process to expand {@link Recurring} events.
      */
-    SYNTHETIC
+    SYNTHETIC;
   }
 
   /**
@@ -142,20 +142,24 @@ public abstract class BillingEvent extends ImmutableObject
      * <p>By default, if the domain is premium, then premium price will be used. Otherwise, the
      * standard price of the TLD will be used.
      */
-    DEFAULT_PRICE,
+    DEFAULT,
     /**
-     * This indicates that standard price will be used for domain renewal.
+     * This indicates the domain will be renewed at standard price even if it's a premium domain.
+     *
+     * <p>We chose to name this "NONPREMIUM" rather than simply "STANDARD" to avoid confusion
+     * between "STANDARD" and "DEFAULT".
      *
      * <p>This price behavior is used with anchor tenants.
      */
-    STANDARD_PRICE,
+    NONPREMIUM,
     /**
-     * This indicates that the renewalPrice in {@link Recurring} will be used for domain renewal.
+     * This indicates that the renewalPrice in {@link BillingEvent.Recurring} will be used for
+     * domain renewal.
      *
-     * <p>The renewalPrice has a value iff the price behavior is set to SPECIFIED_PRICE. This
+     * <p>The renewalPrice has a non-null value iff the price behavior is set to "SPECIFIED". This
      * behavior is used with internal registrations.
      */
-    SPECIFIED_PRICE
+    SPECIFIED;
   }
 
   /** Entity id. */
@@ -588,16 +592,17 @@ public abstract class BillingEvent extends ImmutableObject
      * The renewal price for domain renewal if and only if it's specified.
      *
      * <p>This price column remains null except when the renewal price behavior of the billing is
-     * SPECIFIED_PRICE. This column is used for internal registrations.
+     * SPECIFIED. This column is used for internal registrations.
      */
     @Nullable
     @Type(type = JodaMoneyType.TYPE_NAME)
     @Columns(
         columns = {@Column(name = "renewalPriceAmount"), @Column(name = "renewalPriceCurrency")})
-    Optional<Money> renewalPrice;
+    Money renewalPrice;
 
-    @Column(name = "renewalPriceBehavior")
-    RenewalPriceBehavior renewalPriceBehavior;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "renewalPriceBehavior", nullable = false)
+    RenewalPriceBehavior renewalPriceBehavior = RenewalPriceBehavior.DEFAULT;
 
     public DateTime getRecurrenceEndTime() {
       return recurrenceEndTime;
@@ -612,7 +617,7 @@ public abstract class BillingEvent extends ImmutableObject
     }
 
     public Optional<Money> getRenewalPrice() {
-      return renewalPrice;
+      return Optional.ofNullable(renewalPrice);
     }
 
     @Override
@@ -648,9 +653,8 @@ public abstract class BillingEvent extends ImmutableObject
         return this;
       }
 
-      public Builder setRenewalPrice(Money renewalPrice) {
-        checkNotNull(renewalPrice, "Renewal price is not specified");
-        getInstance().renewalPrice = Optional.of(renewalPrice);
+      public Builder setRenewalPrice(@Nullable Money renewalPrice) {
+        getInstance().renewalPrice = renewalPrice;
         return this;
       }
 
@@ -659,12 +663,11 @@ public abstract class BillingEvent extends ImmutableObject
         Recurring instance = getInstance();
         checkNotNull(instance.eventTime);
         checkNotNull(instance.reason);
-        if (instance.renewalPrice.isPresent()) {
-          checkArgument(
-              instance.renewalPriceBehavior == RenewalPriceBehavior.SPECIFIED_PRICE,
-              "Renewal price can have a value if an only if the renewal price behavior is"
-                  + " SPECIFIED_PRICE");
-        }
+        checkArgument(
+            (instance.renewalPriceBehavior == RenewalPriceBehavior.SPECIFIED)
+                ^ (instance.renewalPrice == null),
+            "Renewal price can have a value if and only if the renewal price behavior is"
+                + " SPECIFIED");
         instance.recurrenceTimeOfYear = TimeOfYear.fromDateTime(instance.eventTime);
         instance.recurrenceEndTime =
             Optional.ofNullable(instance.recurrenceEndTime).orElse(END_OF_TIME);
