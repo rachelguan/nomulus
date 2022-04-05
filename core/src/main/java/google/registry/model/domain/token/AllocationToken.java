@@ -43,7 +43,7 @@ import google.registry.model.BackupGroupRoot;
 import google.registry.model.Buildable;
 import google.registry.model.CreateAutoTimestamp;
 import google.registry.model.annotations.ReportedOn;
-import google.registry.model.billing.BillingEvent;
+import google.registry.model.billing.BillingEvent.RenewalPriceBehavior;
 import google.registry.model.common.TimedTransitionProperty;
 import google.registry.model.common.TimedTransitionProperty.TimeMapper;
 import google.registry.model.common.TimedTransitionProperty.TimedTransition;
@@ -107,40 +107,6 @@ public class AllocationToken extends BackupGroupRoot implements Buildable, Datas
     CANCELLED
   }
 
-  //TODO(rachelguan): Remove this once PR 1573 goes in;
-  /**
-   * Sets of renewal price behaviors that can be applied to billing recurrences.
-   *
-   * <p>When a client renews a domain, they could be charged differently, depending on factors such
-   * as the client type and the domain itself.
-   */
-  public enum RenewalPriceBehavior {
-    /**
-     * This indicates the renewal price is the default price.
-     *
-     * <p>By default, if the domain is premium, then premium price will be used. Otherwise, the
-     * standard price of the TLD will be used.
-     */
-    DEFAULT,
-    /**
-     * This indicates the domain is not part of the premium list and therefore, the standard price
-     * of the TLD will be used for renewal.
-     *
-     * <p>This behavior is equivalent to renewing at standard price. Renewing a domain is either at
-     * standard price or premium price, unless the renewal price is specified. Due to the
-     * similarities between 'DEFAULT' and 'STANDARD', 'NONPREMIUM' is chosen instead. This price
-     * behavior is used with anchor tenants.
-     */
-    NONPREMIUM,
-    /**
-     * This indicates that the renewalPrice in {@link BillingEvent.Recurring} will be used for domain renewal.
-     *
-     * <p>The renewalPrice has a non-null value iff the price behavior is set to SPECIFIED. This
-     * behavior is used with internal registrations.
-     */
-    SPECIFIED
-  };
-
   /** The allocation token string. */
   @javax.persistence.Id @Id String token;
 
@@ -186,8 +152,9 @@ public class AllocationToken extends BackupGroupRoot implements Buildable, Datas
   @Enumerated(EnumType.STRING)
   TokenType tokenType;
 
-  @Column(name = "renewalPriceBehavior")
-  RenewalPriceBehavior renewalPriceBehavior;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "renewalPriceBehavior", nullable = false)
+  RenewalPriceBehavior renewalPriceBehavior = RenewalPriceBehavior.DEFAULT;
 
   // TODO: Remove onLoad once all allocation tokens are migrated to have a discountYears of 1.
   @OnLoad
@@ -281,8 +248,6 @@ public class AllocationToken extends BackupGroupRoot implements Buildable, Datas
   public RenewalPriceBehavior getRenewalPriceBehavior() {
     return renewalPriceBehavior;
   }
-
-
 
   public VKey<AllocationToken> createVKey() {
     return VKey.create(AllocationToken.class, getToken(), Key.create(this));
