@@ -21,6 +21,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import org.hibernate.HibernateException;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.type.StandardBasicTypes;
@@ -116,6 +117,7 @@ public class JodaMoneyType implements CompositeUserType {
     return Objects.hashCode(x);
   }
 
+  @Nullable
   @Override
   public Object nullSafeGet(
       ResultSet rs, String[] names, SharedSessionContractImplementor session, Object owner)
@@ -127,13 +129,16 @@ public class JodaMoneyType implements CompositeUserType {
     // amount are null
     if (amount == null && currencyUnitString == null) {
       return null;
-    }
-    if (amount != null) {
+    } else if (amount != null && currencyUnitString != null) {
       // CurrencyUnit.of() throws an IllegalCurrencyException for unknown currency, which means the
       // currency is valid if it returns a value
       return Money.of(CurrencyUnit.of(currencyUnitString), amount.stripTrailingZeros());
+    } else {
+      throw new HibernateException(
+          String.format(
+              "Mismatching null state between currency '%s' and amount '%s'.",
+              currencyUnitString, amount));
     }
-    throw new HibernateException("Mismatching null state between currency and amount.");
   }
 
   @Override
