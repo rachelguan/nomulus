@@ -524,7 +524,7 @@ public class BillingEventTest extends EntityTestCase {
             .build());
     assertThat(loadByEntity(recurringEvent).getRenewalPriceBehavior())
         .isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(loadByEntity(recurringEvent).getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(loadByEntity(recurringEvent).getRenewalPrice()).hasValue(Money.of(USD, 100));
   }
 
   @TestOfyAndSql
@@ -574,7 +574,7 @@ public class BillingEventTest extends EntityTestCase {
             .build());
     assertThat(loadByEntity(recurringEvent).getRenewalPriceBehavior())
         .isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(loadByEntity(recurringEvent).getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(loadByEntity(recurringEvent).getRenewalPrice()).hasValue(Money.of(USD, 100));
   }
 
   @TestOfyAndSql
@@ -614,7 +614,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, 100))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
     BillingEvent.Recurring loadedEntity = loadByEntity(recurringEvent);
     assertThat(loadedEntity).isEqualTo(recurringEvent);
     persistResource(
@@ -642,7 +642,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, 100))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
     BillingEvent.Recurring loadedEntity = loadByEntity(recurringEvent);
     assertThat(loadedEntity).isEqualTo(recurringEvent);
     persistResource(
@@ -796,7 +796,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, 100))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
     BillingEvent.Recurring loadedEntity = loadByEntity(recurringEvent);
     assertThat(loadedEntity).isEqualTo(recurringEvent);
     IllegalArgumentException thrown =
@@ -828,7 +828,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, 100))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get()).isEqualTo(Money.of(USD, 100));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
     BillingEvent.Recurring loadedEntity = loadByEntity(recurringEvent);
     assertThat(loadedEntity).isEqualTo(recurringEvent);
     IllegalArgumentException thrown =
@@ -860,8 +860,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, BigDecimal.valueOf(100)))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get())
-        .isEqualTo(Money.of(USD, BigDecimal.valueOf(100)));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
   }
 
   @TestOfyAndSql
@@ -894,8 +893,7 @@ public class BillingEventTest extends EntityTestCase {
                     .setRenewalPrice(Money.of(USD, BigDecimal.valueOf(100)))
                     .setRecurrenceEndTime(END_OF_TIME)));
     assertThat(recurringEvent.getRenewalPriceBehavior()).isEqualTo(RenewalPriceBehavior.SPECIFIED);
-    assertThat(recurringEvent.getRenewalPrice().get())
-        .isEqualTo(Money.of(USD, BigDecimal.valueOf(100)));
+    assertThat(recurringEvent.getRenewalPrice()).hasValue(Money.of(USD, 100));
   }
 
   @TestOfyAndSql

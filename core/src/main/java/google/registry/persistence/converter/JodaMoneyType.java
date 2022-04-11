@@ -136,7 +136,7 @@ public class JodaMoneyType implements CompositeUserType {
     } else {
       throw new HibernateException(
           String.format(
-              "Mismatching null state between currency '%s' and amount '%s'.",
+              "Mismatching null state between currency '%s' and amount '%s'",
               currencyUnitString, amount));
     }
   }
@@ -149,7 +149,7 @@ public class JodaMoneyType implements CompositeUserType {
     String currencyUnit = value == null ? null : ((Money) value).getCurrencyUnit().getCode();
 
     if ((amount == null && currencyUnit != null) || (amount != null && currencyUnit == null)) {
-      throw new HibernateException("Mismatching null state between currency and amount.");
+      throw new HibernateException("Mismatching null state between currency and amount");
     }
     StandardBasicTypes.BIG_DECIMAL.nullSafeSet(st, amount, index, session);
     StandardBasicTypes.STRING.nullSafeSet(st, currencyUnit, index + 1, session);

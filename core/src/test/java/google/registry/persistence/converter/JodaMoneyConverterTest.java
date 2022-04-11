@@ -244,7 +244,7 @@ public class JodaMoneyConverterTest {
         .hasMessageThat()
         .isEqualTo(
             "org.hibernate.HibernateException: Mismatching null state between currency 'USD' and"
-                + " amount 'null'.");
+                + " amount 'null'");
   }
 
   @Test
