@@ -51,7 +51,7 @@ class FormFieldTest {
 
   @Test
   void testConvert_emptyString_returnsEmpty() {
-    assertThat(FormField.named("lol").build().convert("").get()).isEmpty();
+    assertThat(FormField.named("lol").build().convert("")).hasValue("");
   }
 
   @Test
@@ -249,7 +249,8 @@ class FormFieldTest {
 
   @Test
   void testAsList_empty_returnsEmpty() {
-    assertThat(FormField.named("lol").asList().build().convert(ImmutableList.of()).get()).isEmpty();
+    assertThat(FormField.named("lol").asList().build().convert(ImmutableList.of()))
+        .hasValue(ImmutableList.of());
   }
 
   @Test
@@ -277,16 +278,16 @@ class FormFieldTest {
   void testAsEnum() {
     FormField<String, ICanHazEnum> omgField =
         FormField.named("omg").asEnum(ICanHazEnum.class).build();
-    assertThat(omgField.convert("LOL").get()).isEqualTo(ICanHazEnum.LOL);
-    assertThat(omgField.convert("CAT").get()).isEqualTo(ICanHazEnum.CAT);
+    assertThat(omgField.convert("LOL")).hasValue(ICanHazEnum.LOL);
+    assertThat(omgField.convert("CAT")).hasValue(ICanHazEnum.CAT);
   }
 
   @Test
   void testAsEnum_lowercase_works() {
     FormField<String, ICanHazEnum> omgField =
         FormField.named("omg").asEnum(ICanHazEnum.class).build();
-    assertThat(omgField.convert("lol").get()).isEqualTo(ICanHazEnum.LOL);
-    assertThat(omgField.convert("cat").get()).isEqualTo(ICanHazEnum.CAT);
+    assertThat(omgField.convert("lol")).hasValue(ICanHazEnum.LOL);
+    assertThat(omgField.convert("cat")).hasValue(ICanHazEnum.CAT);
   }
 
   @Test
@@ -305,8 +306,8 @@ class FormFieldTest {
   void testSplitList() {
     FormField<String, List<String>> field =
         FormField.named("lol").asList(Splitter.on(',').omitEmptyStrings()).build();
-    assertThat(field.convert("oh,my,goth").get()).containsExactly("oh", "my", "goth").inOrder();
-    assertThat(field.convert("").get()).isEmpty();
+    assertThat(field.convert("oh,my,goth")).hasValue(ImmutableList.of("oh", "my", "goth"));
+    assertThat(field.convert("")).hasValue(ImmutableList.of());
     assertThat(field.convert(null)).isEmpty();
   }
 
@@ -314,21 +315,15 @@ class FormFieldTest {
   void testSplitSet() {
     FormField<String, Set<String>> field =
         FormField.named("lol").uppercased().asSet(Splitter.on(',').omitEmptyStrings()).build();
-    assertThat(field.convert("oh,my,goth").get()).containsExactly("OH", "MY", "GOTH").inOrder();
-    assertThat(field.convert("").get()).isEmpty();
+    assertThat(field.convert("oh,my,goth")).hasValue(ImmutableSet.of("OH", "MY", "GOTH"));
+    assertThat(field.convert("")).hasValue(ImmutableSet.of());
     assertThat(field.convert(null)).isEmpty();
   }
 
   @Test
   void testAsList() {
-    assertThat(
-            FormField.named("lol")
-                .asList()
-                .build()
-                .convert(ImmutableList.of("lol", "cat", ""))
-                .get())
-        .containsExactly("lol", "cat", "")
-        .inOrder();
+    assertThat(FormField.named("lol").asList().build().convert(ImmutableList.of("lol", "cat", "")))
+        .hasValue(ImmutableList.of("lol", "cat", ""));
   }
 
   @Test
@@ -341,10 +336,8 @@ class FormFieldTest {
                 .asList()
                 .range(closed(1, 2))
                 .build()
-                .convert(ImmutableList.of("lol\n", "\tcat "))
-                .get())
-        .containsExactly("lol", "cat")
-        .inOrder();
+                .convert(ImmutableList.of("lol\n", "\tcat ")))
+        .hasValue(ImmutableList.of("lol", "cat"));
   }
 
   @Test
@@ -354,9 +347,8 @@ class FormFieldTest {
                 .emptyToNull()
                 .asList()
                 .build()
-                .convert(ImmutableList.of("omg", ""))
-                .get())
-        .containsExactly("omg");
+                .convert(ImmutableList.of("omg", "")))
+        .hasValue(ImmutableList.of("omg"));
   }
 
   @Test
@@ -420,25 +412,20 @@ class FormFieldTest {
                 .build()
                 .convert(
                     Lists.cartesianProduct(
-                        ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3, 4))))
-                .get())
-        .containsExactly(
-            ImmutableList.of(2, 6),
-            ImmutableList.of(2, 8),
-            ImmutableList.of(4, 6),
-            ImmutableList.of(4, 8))
-        .inOrder();
+                        ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3, 4)))))
+        .hasValue(
+            ImmutableList.of(
+                ImmutableList.of(2, 6),
+                ImmutableList.of(2, 8),
+                ImmutableList.of(4, 6),
+                ImmutableList.of(4, 8)));
   }
 
   @Test
   void testAsSet() {
     assertThat(
-            FormField.named("lol")
-                .asSet()
-                .build()
-                .convert(ImmutableList.of("lol", "cat", "cat"))
-                .get())
-        .containsExactly("lol", "cat");
+            FormField.named("lol").asSet().build().convert(ImmutableList.of("lol", "cat", "cat")))
+        .hasValue(ImmutableSet.of("lol", "cat"));
   }
 
   @Test
