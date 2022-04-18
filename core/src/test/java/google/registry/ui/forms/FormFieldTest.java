@@ -441,7 +441,7 @@ class FormFieldTest {
                 .get())
         .containsExactly("lol", "cat");
   }
-  
+
   @Test
   void testTrimmed() {
     assertThat(FormField.named("lol").trimmed().build().convert(" \thello \t\n")).hasValue("hello");
