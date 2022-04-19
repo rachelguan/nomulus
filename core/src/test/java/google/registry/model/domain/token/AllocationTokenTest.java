@@ -187,20 +187,55 @@ public class AllocationTokenTest extends EntityTestCase {
   }
 
   @TestOfyAndSql
-  void testsetRenewalBehavior_assertRenewalBehaviorIsModified() {
-    AllocationToken token =
+  void testsetRenewalBehavior_assertsRenewalBehaviorIsModified() {
+    AllocationToken allocationToken =
         persistResource(
             new AllocationToken.Builder()
                 .setToken("abc123")
                 .setTokenType(SINGLE_USE)
-                .setRenewalPriceBehavior(RenewalPriceBehavior.NONPREMIUM)
+                .setRenewalPriceBehavior(RenewalPriceBehavior.SPECIFIED)
                 .build());
-    AllocationToken loadedToken = loadByEntity(token);
-    assertThat(token).isEqualTo(loadedToken);
     persistResource(
-        loadedToken.asBuilder().setRenewalPriceBehavior(RenewalPriceBehavior.SPECIFIED).build());
-    assertThat(loadByEntity(token).getRenewalPriceBehavior())
-        .isEqualTo(RenewalPriceBehavior.SPECIFIED);
+        loadByEntity(allocationToken)
+            .asBuilder()
+            .setRenewalPriceBehavior(RenewalPriceBehavior.DEFAULT)
+            .build());
+    assertThat(loadByEntity(allocationToken).getRenewalPriceBehavior())
+        .isEqualTo(RenewalPriceBehavior.DEFAULT);
+  }
+
+  @TestOfyAndSql
+  void testsetRenewalBehavior_UnsupportedBehaviorThrowsUnsupportedRenewalPriceBehavior() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                  new AllocationToken.Builder()
+                      .setToken("abc123")
+                      .setTokenType(SINGLE_USE)
+                      .setRenewalPriceBehavior(RenewalPriceBehavior.NONPREMIUM)
+                      .build();
+                }))
+        .hasMessageThat()
+        .isEqualTo("NONPREMIUM is not a supported renewal price behavior in allocation token");
+  }
+
+  @TestOfyAndSql
+  void testsetRenewalBehavior_InvalidBehaviorThrowsUnsupportedRenewalPriceBehavior() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                  new AllocationToken.Builder()
+                      .setToken("abc123")
+                      .setTokenType(SINGLE_USE)
+                      .setRenewalPriceBehavior(RenewalPriceBehavior.valueOf("TEST"))
+                      .build();
+                }))
+        .hasMessageThat()
+        .isEqualTo(
+            "No enum constant"
+                + " google.registry.model.billing.BillingEvent.RenewalPriceBehavior.TEST");
   }
 
   @TestOfyAndSql

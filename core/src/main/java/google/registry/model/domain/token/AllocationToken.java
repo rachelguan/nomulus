@@ -373,6 +373,9 @@ public class AllocationToken extends BackupGroupRoot implements Buildable, Datas
     }
 
     public Builder setRenewalPriceBehavior(RenewalPriceBehavior renewalPriceBehavior) {
+      checkArgument(
+          renewalPriceBehavior != RenewalPriceBehavior.NONPREMIUM,
+          "NONPREMIUM is not a supported renewal price behavior in allocation token");
       getInstance().renewalPriceBehavior = renewalPriceBehavior;
       return this;
     }

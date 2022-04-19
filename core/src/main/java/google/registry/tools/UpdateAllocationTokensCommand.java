@@ -21,12 +21,14 @@ import static com.google.common.collect.Streams.stream;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 import static google.registry.persistence.transaction.TransactionManagerUtil.transactIfJpaTm;
 
+import avro.shaded.com.google.common.base.Ascii;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import google.registry.model.billing.BillingEvent.RenewalPriceBehavior;
 import google.registry.model.domain.token.AllocationToken;
 import google.registry.model.domain.token.AllocationToken.TokenStatus;
 import google.registry.tools.params.TransitionListParameter.TokenStatusTransitions;
@@ -88,6 +90,13 @@ final class UpdateAllocationTokensCommand extends UpdateOrDeleteAllocationTokens
               + "form <time>=<status>[,<time>=<status>]* where each status represents the status.")
   private ImmutableSortedMap<DateTime, TokenStatus> tokenStatusTransitions;
 
+  @Parameter(
+      names = {"--renewal_price_behavior"},
+      description =
+          "Type of renewal price behavior, either DEFAULT (default) or SPECIFIED. This indicates"
+              + " how a domain should be charged for renewal.")
+  private String renewalPriceBehavior;
+
   private static final int BATCH_SIZE = 20;
   private static final Joiner JOINER = Joiner.on(", ");
 
@@ -142,7 +151,18 @@ final class UpdateAllocationTokensCommand extends UpdateOrDeleteAllocationTokens
     Optional.ofNullable(discountPremiums).ifPresent(builder::setDiscountPremiums);
     Optional.ofNullable(discountYears).ifPresent(builder::setDiscountYears);
     Optional.ofNullable(tokenStatusTransitions).ifPresent(builder::setTokenStatusTransitions);
+    Optional.ofNullable(renewalPriceBehavior)
+        .ifPresent(behavior -> builder.setRenewalPriceBehavior(getRenewalPriceBehavior(behavior)));
     return builder.build();
+  }
+
+  private RenewalPriceBehavior getRenewalPriceBehavior(String renewalPriceBehaviorStr) {
+    try {
+      return RenewalPriceBehavior.valueOf(Ascii.toUpperCase(renewalPriceBehaviorStr));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          String.format("Invalid renewal price behavior: '%s'", renewalPriceBehaviorStr));
+    }
   }
 
   private long saveBatch(ImmutableList<AllocationToken> batch) {

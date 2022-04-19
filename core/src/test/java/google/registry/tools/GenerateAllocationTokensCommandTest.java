@@ -15,6 +15,8 @@
 package google.registry.tools;
 
 import static com.google.common.truth.Truth.assertThat;
+import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.DEFAULT;
+import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.SPECIFIED;
 import static google.registry.model.domain.token.AllocationToken.TokenType.SINGLE_USE;
 import static google.registry.model.domain.token.AllocationToken.TokenType.UNLIMITED_USE;
 import static google.registry.testing.DatabaseHelper.assertAllocationTokens;
@@ -37,6 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import google.registry.model.billing.BillingEvent.RenewalPriceBehavior;
 import google.registry.model.domain.token.AllocationToken;
 import google.registry.model.domain.token.AllocationToken.TokenStatus;
 import google.registry.model.reporting.HistoryEntry;
@@ -70,7 +73,7 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
   @TestOfyAndSql
   void testSuccess_oneToken() throws Exception {
     runCommand("--prefix", "blah", "--number", "1", "--length", "9");
-    assertAllocationTokens(createToken("blah123456789", null, null));
+    assertAllocationTokens(createToken("blah123456789", DEFAULT, null, null));
     assertInStdout("blah123456789");
   }
 
@@ -78,16 +81,16 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
   void testSuccess_threeTokens() throws Exception {
     runCommand("--prefix", "foo", "--number", "3", "--length", "10");
     assertAllocationTokens(
-        createToken("foo123456789A", null, null),
-        createToken("fooBCDEFGHJKL", null, null),
-        createToken("fooMNPQRSTUVW", null, null));
+        createToken("foo123456789A", DEFAULT, null, null),
+        createToken("fooBCDEFGHJKL", DEFAULT, null, null),
+        createToken("fooMNPQRSTUVW", DEFAULT, null, null));
     assertInStdout("foo123456789A\nfooBCDEFGHJKL\nfooMNPQRSTUVW");
   }
 
   @TestOfyAndSql
   void testSuccess_defaults() throws Exception {
     runCommand("--number", "1");
-    assertAllocationTokens(createToken("123456789ABCDEFG", null, null));
+    assertAllocationTokens(createToken("123456789ABCDEFG", DEFAULT, null, null));
     assertInStdout("123456789ABCDEFG");
   }
 
@@ -101,7 +104,7 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
         .when(command)
         .saveTokens(ArgumentMatchers.any());
     runCommand("--number", "1");
-    assertAllocationTokens(createToken("123456789ABCDEFG", null, null));
+    assertAllocationTokens(createToken("123456789ABCDEFG", DEFAULT, null, null));
     assertInStdout("123456789ABCDEFG");
     verify(command, times(3)).saveTokens(ArgumentMatchers.any());
   }
@@ -115,7 +118,7 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
                 .setTokenType(SINGLE_USE)
                 .build());
     runCommand("--number", "1", "--prefix", "DEADBEEF", "--length", "12");
-    assertAllocationTokens(existingToken, createToken("DEADBEEFDEFGHJKLMNPQ", null, null));
+    assertAllocationTokens(existingToken, createToken("DEADBEEFDEFGHJKLMNPQ", DEFAULT, null, null));
     assertInStdout("DEADBEEFDEFGHJKLMNPQ");
   }
 
@@ -143,9 +146,9 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
     Files.asCharSink(domainNamesFile, UTF_8).write("foo1.tld\nboo2.tld\nçauçalito.みんな\n");
     runCommand("--domain_names_file", domainNamesFile.getPath());
     assertAllocationTokens(
-        createToken("123456789ABCDEFG", null, "foo1.tld"),
-        createToken("HJKLMNPQRSTUVWXY", null, "boo2.tld"),
-        createToken("Zabcdefghijkmnop", null, "xn--aualito-txac.xn--q9jyb4c"));
+        createToken("123456789ABCDEFG", DEFAULT, null, "foo1.tld"),
+        createToken("HJKLMNPQRSTUVWXY", DEFAULT, null, "boo2.tld"),
+        createToken("Zabcdefghijkmnop", DEFAULT, null, "xn--aualito-txac.xn--q9jyb4c"));
     assertInStdout(
         "foo1.tld,123456789ABCDEFG",
         "boo2.tld,HJKLMNPQRSTUVWXY",
@@ -189,8 +192,77 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
   @TestOfyAndSql
   void testSuccess_specifyTokens() throws Exception {
     runCommand("--tokens", "foobar,foobaz");
-    assertAllocationTokens(createToken("foobar", null, null), createToken("foobaz", null, null));
+    assertAllocationTokens(
+        createToken("foobar", DEFAULT, null, null), createToken("foobaz", DEFAULT, null, null));
     assertInStdout("foobar", "foobaz");
+  }
+
+  @TestOfyAndSql
+  void testSuccess_renewalPriceBehaviorIsDefault() throws Exception {
+    runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "DEFAULT");
+    assertAllocationTokens(
+        createToken("foobar", DEFAULT, null, null), createToken("foobaz", DEFAULT, null, null));
+    assertInStdout("foobar", "foobaz");
+  }
+
+  @TestOfyAndSql
+  void testSuccess_renewalPriceBehaviorIsSpecified() throws Exception {
+    runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "SPECIFIED");
+    assertAllocationTokens(
+        createToken("foobar", SPECIFIED, null, null), createToken("foobaz", SPECIFIED, null, null));
+    assertInStdout("foobar", "foobaz");
+  }
+
+  @TestOfyAndSql
+  void testSuccess_renewalPriceBehaviorIsInAllLowerCase() throws Exception {
+    runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "specified");
+    assertAllocationTokens(
+        createToken("foobar", SPECIFIED, null, null), createToken("foobaz", SPECIFIED, null, null));
+    assertInStdout("foobar", "foobaz");
+  }
+
+  @TestOfyAndSql
+  void testSuccess_renewalPriceBehaviorIsInMixedrCases() throws Exception {
+    runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "deFault");
+    assertAllocationTokens(
+        createToken("foobar", DEFAULT, null, null), createToken("foobaz", DEFAULT, null, null));
+    assertInStdout("foobar", "foobaz");
+  }
+
+  @TestOfyAndSql
+  void testFailure_renewalPriceBehaviorIsSpecifiedIsInvalid() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                  runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "SPEXIFIED");
+                }))
+        .hasMessageThat()
+        .isEqualTo("Invalid renewal price behavior: 'SPEXIFIED'");
+  }
+
+  @TestOfyAndSql
+  void testFailure_renewalPriceBehaviorIsNonpremium() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                  runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "NONPREMIUM");
+                }))
+        .hasMessageThat()
+        .isEqualTo("NONPREMIUM is not a supported renewal price behavior in allocation token");
+  }
+
+  @TestOfyAndSql
+  void testFailure_renewalPriceBehaviorIsEmptyString() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                  runCommand("--tokens", "foobar,foobaz", "--renewal_price_behavior", "");
+                }))
+        .hasMessageThat()
+        .isEqualTo("Invalid renewal price behavior: ''");
   }
 
   @TestOfyAndSql
@@ -318,10 +390,14 @@ class GenerateAllocationTokensCommandTest extends CommandTestCase<GenerateAlloca
 
   private AllocationToken createToken(
       String token,
+      RenewalPriceBehavior renewalPriceBehavior,
       @Nullable VKey<? extends HistoryEntry> redemptionHistoryEntry,
       @Nullable String domainName) {
     AllocationToken.Builder builder =
-        new AllocationToken.Builder().setToken(token).setTokenType(SINGLE_USE);
+        new AllocationToken.Builder()
+            .setToken(token)
+            .setTokenType(SINGLE_USE)
+            .setRenewalPriceBehavior(renewalPriceBehavior);
     if (redemptionHistoryEntry != null) {
       builder.setRedemptionHistoryEntry(redemptionHistoryEntry);
     }
