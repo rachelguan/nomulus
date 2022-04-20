@@ -15,7 +15,6 @@
 package google.registry.flows.domain;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static google.registry.flows.FlowUtils.persistEntityChanges;
 import static google.registry.flows.FlowUtils.validateRegistrarIsLoggedIn;
@@ -308,8 +307,6 @@ public final class DomainCreateFlow implements TransactionalFlow {
     FeesAndCredits feesAndCredits =
         pricingLogic.getCreatePrice(
             registry, targetId, now, years, isAnchorTenant, allocationToken);
-    RenewalPriceInfo renewalPriceInfo =
-        getRenewalPriceInfo(isAnchorTenant, allocationToken, feesAndCredits.getCreateCost());
     validateFeeChallenge(targetId, now, feeCreate, feesAndCredits);
     Optional<SecDnsCreateExtension> secDnsCreate =
         validateSecDnsExtension(eppInput.getSingleExtension(SecDnsCreateExtension.class));
@@ -332,7 +329,10 @@ public final class DomainCreateFlow implements TransactionalFlow {
             now);
     // Create a new autorenew billing event and poll message starting at the expiration time.
     BillingEvent.Recurring autorenewBillingEvent =
-        createAutorenewBillingEvent(domainHistoryKey, registrationExpirationTime, renewalPriceInfo);
+        createAutorenewBillingEvent(
+            domainHistoryKey,
+            registrationExpirationTime,
+            getRenewalPriceInfo(isAnchorTenant, allocationToken, feesAndCredits));
     PollMessage.Autorenew autorenewPollMessage =
         createAutorenewPollMessage(domainHistoryKey, registrationExpirationTime);
     ImmutableSet.Builder<ImmutableObject> entitiesToSave = new ImmutableSet.Builder<>();
@@ -485,7 +485,6 @@ public final class DomainCreateFlow implements TransactionalFlow {
   private Optional<AllocationToken> verifyAllocationTokenIfPresent(
       DomainCommand.Create command, Registry registry, String registrarId, DateTime now)
       throws EppException {
-
     Optional<AllocationTokenExtension> extension =
         eppInput.getSingleExtension(AllocationTokenExtension.class);
     return Optional.ofNullable(
@@ -625,13 +624,14 @@ public final class DomainCreateFlow implements TransactionalFlow {
    * Determines the {@link RenewalPriceBehavior} and the renewal price that needs be stored in the
    * {@link Recurring} billing events.
    *
-   * <p>By default, renewal price is calculated during the process of renewal. Renewal price should
-   * be the createCost if and only if the renewal price behavior in the {@link AllocationToken} is
-   * 'SPECIFIED'.
+   * <p>By default, the renewal price is calculated during the process of renewal. Renewal price
+   * should be the createCost if and only if the renewal price behavior in the {@link
+   * AllocationToken} is 'SPECIFIED'.
    */
   static RenewalPriceInfo getRenewalPriceInfo(
-      Boolean isAnchorTenant, Optional<AllocationToken> allocationToken, Money createCost) {
-    checkNotNull(createCost, "Create cost cannot be null");
+      boolean isAnchorTenant,
+      Optional<AllocationToken> allocationToken,
+      FeesAndCredits feesAndCredits) {
     if (isAnchorTenant) {
       if (allocationToken.isPresent()) {
         checkArgument(
@@ -641,7 +641,8 @@ public final class DomainCreateFlow implements TransactionalFlow {
       return RenewalPriceInfo.create(RenewalPriceBehavior.NONPREMIUM, null);
     } else if (allocationToken.isPresent()
         && allocationToken.get().getRenewalPriceBehavior() == RenewalPriceBehavior.SPECIFIED) {
-      return RenewalPriceInfo.create(RenewalPriceBehavior.SPECIFIED, createCost);
+      return RenewalPriceInfo.create(
+          RenewalPriceBehavior.SPECIFIED, feesAndCredits.getCreateCost());
     } else {
       return RenewalPriceInfo.create(RenewalPriceBehavior.DEFAULT, null);
     }
