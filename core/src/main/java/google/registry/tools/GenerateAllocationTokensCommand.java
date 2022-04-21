@@ -25,7 +25,6 @@ import static google.registry.util.CollectionUtils.nullToEmpty;
 import static google.registry.util.StringGenerator.DEFAULT_PASSWORD_LENGTH;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import avro.shaded.com.google.common.base.Ascii;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.appengine.tools.remoteapi.RemoteApiException;
@@ -146,9 +145,9 @@ class GenerateAllocationTokensCommand implements CommandWithRemoteApi {
   @Parameter(
       names = {"--renewal_price_behavior"},
       description =
-          "Type of renewal price behavior, either DEFAULT (default) or SPECIFIED. This indicates"
-              + " how a domain should be charged for renewal.")
-  private String renewalPriceBehavior;
+          "Type of renewal price behavior, either DEFAULT (default), NONPREMIUM, or SPECIFIED."
+              + " This indicates how a domain should be charged for renewal.")
+  private RenewalPriceBehavior renewalPriceBehavior = RenewalPriceBehavior.DEFAULT;
 
   @Parameter(
       names = {"--dry_run"},
@@ -183,6 +182,7 @@ class GenerateAllocationTokensCommand implements CommandWithRemoteApi {
               .collect(Collectors.toCollection(ArrayDeque::new));
       numTokens = domainNames.size();
     }
+
     int tokensSaved = 0;
     do {
       ImmutableSet<AllocationToken> tokens =
@@ -192,7 +192,7 @@ class GenerateAllocationTokensCommand implements CommandWithRemoteApi {
                     AllocationToken.Builder token =
                         new AllocationToken.Builder()
                             .setToken(t)
-                            .setRenewalPriceBehavior(getRenewalPriceBehavior(renewalPriceBehavior))
+                            .setRenewalPriceBehavior(renewalPriceBehavior)
                             .setTokenType(tokenType == null ? SINGLE_USE : tokenType)
                             .setAllowedRegistrarIds(
                                 ImmutableSet.copyOf(nullToEmpty(allowedClientIds)))
@@ -308,18 +308,5 @@ class GenerateAllocationTokensCommand implements CommandWithRemoteApi {
             tm().loadByKeysIfPresent(existingTokenKeys).values().stream()
                 .map(AllocationToken::getToken)
                 .collect(toImmutableSet()));
-  }
-
-  private RenewalPriceBehavior getRenewalPriceBehavior(String renewalPriceBehaviorStr) {
-    if (renewalPriceBehaviorStr == null) {
-      return RenewalPriceBehavior.DEFAULT;
-    } else {
-      try {
-        return RenewalPriceBehavior.valueOf(Ascii.toUpperCase(renewalPriceBehaviorStr));
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(
-            String.format("Invalid renewal price behavior: '%s'", renewalPriceBehaviorStr));
-      }
-    }
   }
 }
