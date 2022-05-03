@@ -93,8 +93,11 @@ final class UpdateAllocationTokensCommand extends UpdateOrDeleteAllocationTokens
   @Parameter(
       names = {"--renewal_price_behavior"},
       description =
-          "Type of renewal price behavior, either DEFAULT (default), NONPREMIUM, or SPECIFIED."
-              + " This indicates how a domain should be charged for renewal.")
+          "The type of renewal price behavior, either DEFAULT (default), NONPREMIUM, or SPECIFIED."
+              + " This indicates how a domain should be charged for renewal. By default, a domain"
+              + " will be renewed at the renewal price from the pricing engine. If the renewal"
+              + " price behavior is set to SPECIFIED, it means that the renewal cost will be the"
+              + " same as the domain's calculated create price.")
   @Nullable
   private RenewalPriceBehavior renewalPriceBehavior;
 

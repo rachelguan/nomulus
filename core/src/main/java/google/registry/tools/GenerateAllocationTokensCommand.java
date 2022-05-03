@@ -17,6 +17,7 @@ package google.registry.tools;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
+import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.DEFAULT;
 import static google.registry.model.domain.token.AllocationToken.TokenType.SINGLE_USE;
 import static google.registry.model.domain.token.AllocationToken.TokenType.UNLIMITED_USE;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
@@ -145,9 +146,12 @@ class GenerateAllocationTokensCommand implements CommandWithRemoteApi {
   @Parameter(
       names = {"--renewal_price_behavior"},
       description =
-          "Type of renewal price behavior, either DEFAULT (default), NONPREMIUM, or SPECIFIED."
-              + " This indicates how a domain should be charged for renewal.")
-  private RenewalPriceBehavior renewalPriceBehavior = RenewalPriceBehavior.DEFAULT;
+          "The type of renewal price behavior, either DEFAULT (default), NONPREMIUM, or SPECIFIED."
+              + " This indicates how a domain should be charged for renewal. By default, a domain"
+              + " will be renewed at the renewal price from the pricing engine. If the renewal"
+              + " price behavior is set to SPECIFIED, it means that the renewal cost will be the"
+              + " same as the domain's calculated create price.")
+  private RenewalPriceBehavior renewalPriceBehavior = DEFAULT;
 
   @Parameter(
       names = {"--dry_run"},
