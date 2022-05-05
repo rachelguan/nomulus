@@ -36,7 +36,6 @@ import google.registry.model.domain.fee.Fee;
 import google.registry.model.domain.token.AllocationToken;
 import google.registry.model.pricing.PremiumPricingEngine.DomainPrices;
 import google.registry.model.tld.Registry;
-
 import java.math.RoundingMode;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -105,7 +104,6 @@ public final class DomainPricingLogic {
             .build());
   }
 
-
   /** Returns a new renewal cost for the pricer. */
   FeesAndCredits getRenewPrice(
       Registry registry,
@@ -130,8 +128,8 @@ public final class DomainPricingLogic {
           renewCost = domainPrices.getRenewCost().multipliedBy(years);
           isRenewCostPremiumPrice = domainPrices.isPremium();
           break;
-        // if the renewal price behavior is specified, then the renewal price should be the same
-        // as the creation price, which is stored in the billing event as the renewal price
+          // if the renewal price behavior is specified, then the renewal price should be the same
+          // as the creation price, which is stored in the billing event as the renewal price
         case SPECIFIED:
           checkArgumentPresent(
               recurringBillingEvent.getRenewalPrice(),
@@ -140,8 +138,8 @@ public final class DomainPricingLogic {
           renewCost = recurringBillingEvent.getRenewalPrice().get().multipliedBy(years);
           isRenewCostPremiumPrice = false;
           break;
-        // if the renewal price behavior is nonpremium, it means that the domain should be renewed
-        // at standard price of domains at the time, even if the domain is premium
+          // if the renewal price behavior is nonpremium, it means that the domain should be renewed
+          // at standard price of domains at the time, even if the domain is premium
         case NONPREMIUM:
           renewCost =
               Registry.get(getTldFromDomainName(domainName))

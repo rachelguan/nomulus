@@ -181,10 +181,7 @@ public final class DomainRenewFlow implements TransactionalFlow {
     BillingEvent.Recurring newAutorenewEvent =
         newAutorenewBillingEvent(existingDomain)
             .setEventTime(newExpirationTime)
-            .setRenewalPrice(
-                existingRecurringBillingEvent.getRenewalPrice().isPresent()
-                    ? existingRecurringBillingEvent.getRenewalPrice().get()
-                    : null)
+            .setRenewalPrice(existingRecurringBillingEvent.getRenewalPrice().orElse(null))
             .setRenewalPriceBehavior(existingRecurringBillingEvent.getRenewalPriceBehavior())
             .setParent(domainHistoryKey)
             .build();
