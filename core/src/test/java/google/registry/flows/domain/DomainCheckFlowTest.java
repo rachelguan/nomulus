@@ -29,6 +29,7 @@ import static google.registry.testing.DatabaseHelper.persistPremiumList;
 import static google.registry.testing.DatabaseHelper.persistReservedList;
 import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.EppExceptionSubject.assertAboutEppExceptions;
+import static google.registry.util.DateTimeUtils.END_OF_TIME;
 import static google.registry.util.DateTimeUtils.START_OF_TIME;
 import static org.joda.money.CurrencyUnit.JPY;
 import static org.joda.money.CurrencyUnit.USD;
@@ -66,7 +67,11 @@ import google.registry.flows.domain.DomainFlowUtils.TrailingDashException;
 import google.registry.flows.domain.DomainFlowUtils.TransfersAreAlwaysForOneYearException;
 import google.registry.flows.domain.DomainFlowUtils.UnknownFeeCommandException;
 import google.registry.flows.exceptions.TooManyResourceChecksException;
+import google.registry.model.billing.BillingEvent;
+import google.registry.model.billing.BillingEvent.Flag;
+import google.registry.model.billing.BillingEvent.Reason;
 import google.registry.model.domain.DomainBase;
+import google.registry.model.domain.DomainHistory;
 import google.registry.model.domain.token.AllocationToken;
 import google.registry.model.domain.token.AllocationToken.TokenStatus;
 import google.registry.model.eppcommon.StatusValue;
@@ -117,6 +122,29 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
         "premiumcollision,NAME_COLLISION",
         "reserved,FULLY_BLOCKED",
         "specificuse,RESERVED_FOR_SPECIFIC_USE");
+  }
+
+  private void setUpBillingEventForExistingDomain(DomainBase domain) {
+    DomainHistory historyEntry =
+        persistResource(
+            new DomainHistory.Builder()
+                .setDomain(domain)
+                .setType(HistoryEntry.Type.DOMAIN_CREATE)
+                .setModificationTime(clock.nowUtc())
+                .setRegistrarId(domain.getCreationRegistrarId())
+                .build());
+    BillingEvent.Recurring renewEvent =
+        persistResource(
+            new BillingEvent.Recurring.Builder()
+                .setReason(Reason.RENEW)
+                .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+                .setTargetId(domain.getDomainName())
+                .setRegistrarId("TheRegistrar")
+                .setEventTime(clock.nowUtc())
+                .setRecurrenceEndTime(END_OF_TIME)
+                .setParent(historyEntry)
+                .build());
+    persistResource(domain.asBuilder().setAutorenewBillingEvent(renewEvent.createVKey()).build());
   }
 
   @BeforeEach
@@ -838,7 +866,6 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
     createTld("example");
     setEppInput("domain_check_fee_premium_v06.xml");
     clock.setTo(DateTime.parse("2010-01-01T10:00:00Z"));
-    persistPendingDeleteDomain("rich.example");
     persistResource(
         Registry.get("example")
             .asBuilder()
@@ -850,7 +877,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
                     .put(clock.nowUtc().plusDays(2), Money.of(USD, 0))
                     .build())
             .build());
-
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("rich.example"));
     runFlowAssertResponse(loadFile("domain_check_fee_premium_eap_response_v06_with_renewal.xml"));
   }
 
@@ -909,7 +936,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   void testFeeExtension_premiumLabels_v12_withRenewalOnRestore() throws Exception {
     createTld("example");
     setEppInput("domain_check_fee_premium_v12.xml");
-    persistPendingDeleteDomain("rich.example");
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("rich.example"));
     runFlowAssertResponse(loadFile("domain_check_fee_premium_response_v12_with_renewal.xml"));
   }
 
@@ -949,7 +976,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
             .setPremiumList(persistPremiumList("tld", USD, "premiumcollision,USD 70"))
             .build());
     // The domain needs to exist in order for it to be loaded to check for restore fee.
-    persistActiveDomain("allowedinsunrise.tld");
+    setUpBillingEventForExistingDomain(persistActiveDomain("allowedinsunrise.tld"));
     setEppInput("domain_check_fee_reserved_dupes_v06.xml");
     runFlowAssertResponse(loadFile("domain_check_fee_reserved_response_dupes_v06.xml"));
   }
@@ -1041,8 +1068,8 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
             .setPremiumList(persistPremiumList("tld", USD, "premiumcollision,USD 70"))
             .build());
     // The domain needs to exist in order for it to be loaded to check for restore fee.
-    persistActiveDomain("allowedinsunrise.tld");
     setEppInput("domain_check_fee_reserved_dupes_v12.xml");
+    setUpBillingEventForExistingDomain(persistActiveDomain("allowedinsunrise.tld"));
     runFlowAssertResponse(loadFile("domain_check_fee_reserved_dupes_response_v12.xml"));
   }
 
@@ -1069,10 +1096,10 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
             .setReservedLists(createReservedList())
             .setPremiumList(persistPremiumList("tld", USD, "premiumcollision,USD 70"))
             .build());
-    persistPendingDeleteDomain("reserved.tld");
-    persistPendingDeleteDomain("allowedinsunrise.tld");
-    persistPendingDeleteDomain("collision.tld");
-    persistPendingDeleteDomain("premiumcollision.tld");
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("reserved.tld"));
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("allowedinsunrise.tld"));
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("collision.tld"));
+    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("premiumcollision.tld"));
     setEppInput("domain_check_fee_reserved_v06.xml");
     runFlowAssertResponse(
         loadFile("domain_check_fee_reserved_sunrise_response_v06_with_renewals.xml"));
@@ -1382,8 +1409,8 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
     assertTldsFieldLogged("com", "net", "org");
   }
 
-  private void persistPendingDeleteDomain(String domainName) {
-    persistResource(
+  private DomainBase persistPendingDeleteDomain(String domainName) {
+    return persistResource(
         newDomainBase(domainName)
             .asBuilder()
             .setDeletionTime(clock.nowUtc().plusDays(25))

@@ -680,7 +680,19 @@ public class DomainFlowUtils {
         break;
       case RENEW:
         builder.setAvailIfSupported(true);
-        fees = pricingLogic.getRenewPrice(registry, domainNameString, now, years).getFees();
+        if (domain.isPresent()) {
+          fees =
+              pricingLogic
+                  .getRenewPrice(
+                      registry,
+                      domainNameString,
+                      now,
+                      years,
+                      tm().transact(() -> tm().loadByKey(domain.get().getAutorenewBillingEvent())))
+                  .getFees();
+        } else {
+          fees = pricingLogic.getRenewPrice(registry, domainNameString, now, years, null).getFees();
+        }
         break;
       case RESTORE:
         // The minimum allowable period per the EPP spec is 1, so, strangely, 1 year still has to be
