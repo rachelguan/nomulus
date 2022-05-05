@@ -128,6 +128,50 @@ public final class DomainPricingLogic {
             .build());
   }
 
+  /**
+   * Calculates the renewal cost of a domain.
+   *
+   * <p>This method is set as static which allows it to be used without instantiating a {@link
+   * DomainPricingLogic} object to get the renewal price in other files. If this method is non-
+   * static, it would be difficult for static methods in files such as {@link
+   * google.registry.batch.ExpandRecurringBillingEventsAction} to get the renewal cost. Moreover,
+   * it's easier to get the renewal price as an {@link Money} object by simply calling
+   * DomainPricingLogic.getRenewPrice() instead of injecting domainPricingLogic then calling
+   * domainPricingLogic.getRenewPrice().getRenewPrice().
+   */
+  @SuppressWarnings("unused")
+  public static Money getRenewPrice(
+      String domainName, DateTime dateTime, int years, @Nullable Recurring recurringBillingEvent) {
+    checkArgument(years > 0, "Number of years must be positive");
+    if (recurringBillingEvent != null) {
+      switch (recurringBillingEvent.getRenewalPriceBehavior()) {
+        case DEFAULT:
+          return PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
+          // if the renewal price behavior is specified, then the renewal price should be the same
+          // as the creation price, which is stored in the billing event as the renewal price
+        case SPECIFIED:
+          checkArgument(
+              recurringBillingEvent.getRenewalPrice().isPresent(),
+              "Unexpected behavior: renewal price cannot be null when renewal behavior is"
+                  + " SPECIFIED");
+          return recurringBillingEvent.getRenewalPrice().get().multipliedBy(years);
+          // if the renewal price behavior is nonpremium, it means that the domain should be renewed
+          // at standard price of domains at the time, even if the domain is premium
+        case NONPREMIUM:
+          return Registry.get(getTldFromDomainName(domainName))
+              .getStandardRenewCost(dateTime)
+              .multipliedBy(years);
+        default:
+          throw new IllegalArgumentException(
+              String.format(
+                  "Unknown RenewalPriceBehavior enum value: %s",
+                  recurringBillingEvent.getRenewalPriceBehavior()));
+      }
+    } else {
+      return PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
+    }
+  }
+
   /** Returns a new renewal cost for the pricer. */
   @SuppressWarnings("unused")
   FeesAndCredits getRenewPrice(
@@ -138,32 +182,7 @@ public final class DomainPricingLogic {
       @Nullable Recurring recurringBillingEvent)
       throws EppException {
     checkArgument(years > 0, "Number of years must be positive");
-    Money renewCost = PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
-    if (recurringBillingEvent != null) {
-      switch (recurringBillingEvent.getRenewalPriceBehavior()) {
-        case DEFAULT:
-          renewCost = PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
-          break;
-        case SPECIFIED:
-          checkArgument(
-              recurringBillingEvent.getRenewalPrice().isPresent(),
-              "Unexpected behavior: renewal price cannot be null when renewal behavior is"
-                  + " SPECIFIED");
-          renewCost = recurringBillingEvent.getRenewalPrice().get().multipliedBy(years);
-          break;
-        case NONPREMIUM:
-          renewCost =
-              Registry.get(getTldFromDomainName(domainName))
-                  .getStandardRenewCost(dateTime)
-                  .multipliedBy(years);
-          break;
-        default:
-          throw new IllegalArgumentException(
-              String.format(
-                  "Unknown RenewalPriceBehavior enum value: %s",
-                  recurringBillingEvent.getRenewalPriceBehavior()));
-      }
-    }
+    Money renewCost = getRenewPrice(domainName, dateTime, years, recurringBillingEvent);
     return customLogic.customizeRenewPrice(
         RenewPriceParameters.newBuilder()
             .setFeesAndCredits(
