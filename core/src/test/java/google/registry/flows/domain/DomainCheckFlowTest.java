@@ -130,7 +130,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
             new DomainHistory.Builder()
                 .setDomain(domain)
                 .setType(HistoryEntry.Type.DOMAIN_CREATE)
-                .setModificationTime(clock.nowUtc())
+                .setModificationTime(domain.getCreationTime())
                 .setRegistrarId(domain.getCreationRegistrarId())
                 .build());
     BillingEvent.Recurring renewEvent =
@@ -140,7 +140,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
                 .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
                 .setTargetId(domain.getDomainName())
                 .setRegistrarId("TheRegistrar")
-                .setEventTime(clock.nowUtc())
+                .setEventTime(domain.getCreationTime())
                 .setRecurrenceEndTime(END_OF_TIME)
                 .setParent(historyEntry)
                 .build());

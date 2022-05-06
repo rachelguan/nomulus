@@ -216,7 +216,7 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             new DomainHistory.Builder()
                 .setRegistrarId(domain.getCreationRegistrarId())
                 .setType(HistoryEntry.Type.DOMAIN_CREATE)
-                .setModificationTime(clock.nowUtc())
+                .setModificationTime(domain.getCreationTime())
                 .setDomain(domain)
                 .build());
     Recurring recurring =
@@ -224,7 +224,7 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             new BillingEvent.Recurring.Builder()
                 .setParent(historyEntry)
                 .setRegistrarId(domain.getCreationRegistrarId())
-                .setEventTime(clock.nowUtc())
+                .setEventTime(domain.getCreationTime())
                 .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
                 .setId(2L)
                 .setReason(Reason.RENEW)
