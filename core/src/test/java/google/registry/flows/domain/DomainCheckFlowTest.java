@@ -21,6 +21,7 @@ import static google.registry.model.tld.Registry.TldState.PREDELEGATION;
 import static google.registry.model.tld.Registry.TldState.START_DATE_SUNRISE;
 import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.createTlds;
+import static google.registry.testing.DatabaseHelper.loadByEntity;
 import static google.registry.testing.DatabaseHelper.loadRegistrar;
 import static google.registry.testing.DatabaseHelper.newDomainBase;
 import static google.registry.testing.DatabaseHelper.persistActiveDomain;
@@ -125,6 +126,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   }
 
   private void setUpBillingEventForExistingDomain(DomainBase domain) {
+    DomainBase existingDomain = loadByEntity(domain);
     DomainHistory historyEntry =
         persistResource(
             new DomainHistory.Builder()
@@ -144,7 +146,8 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
                 .setRecurrenceEndTime(END_OF_TIME)
                 .setParent(historyEntry)
                 .build());
-    persistResource(domain.asBuilder().setAutorenewBillingEvent(renewEvent.createVKey()).build());
+    persistResource(
+        existingDomain.asBuilder().setAutorenewBillingEvent(renewEvent.createVKey()).build());
   }
 
   @BeforeEach
@@ -864,8 +867,17 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   @TestOfyAndSql
   void testFeeExtension_premium_eap_v06_withRenewalOnRestore() throws Exception {
     createTld("example");
+    DomainBase domainBase = persistActiveDomain("rich.example");
+    setUpBillingEventForExistingDomain(domainBase);
     setEppInput("domain_check_fee_premium_v06.xml");
     clock.setTo(DateTime.parse("2010-01-01T10:00:00Z"));
+    persistResource(
+        loadByEntity(domainBase)
+            .asBuilder()
+            .setDeletionTime(clock.nowUtc().plusDays(25))
+            .setRegistrationExpirationTime(clock.nowUtc().minusDays(1))
+            .setStatusValues(ImmutableSet.of(StatusValue.PENDING_DELETE))
+            .build());
     persistResource(
         Registry.get("example")
             .asBuilder()
@@ -877,7 +889,6 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
                     .put(clock.nowUtc().plusDays(2), Money.of(USD, 0))
                     .build())
             .build());
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("rich.example"));
     runFlowAssertResponse(loadFile("domain_check_fee_premium_eap_response_v06_with_renewal.xml"));
   }
 
