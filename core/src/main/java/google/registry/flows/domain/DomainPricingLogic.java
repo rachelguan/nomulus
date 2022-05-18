@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static google.registry.flows.domain.DomainFlowUtils.zeroInCurrency;
 import static google.registry.pricing.PricingEngineProxy.getPricesForDomainName;
 import static google.registry.util.DomainNameUtils.getTldFromDomainName;
+import static google.registry.util.PreconditionsUtils.checkArgumentPresent;
 
 import com.google.common.net.InternetDomainName;
 import google.registry.flows.EppException;
@@ -36,8 +37,6 @@ import google.registry.model.domain.fee.Fee;
 import google.registry.model.domain.token.AllocationToken;
 import google.registry.model.pricing.PremiumPricingEngine.DomainPrices;
 import google.registry.model.tld.Registry;
-import google.registry.pricing.PricingEngineProxy;
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -107,29 +106,7 @@ public final class DomainPricingLogic {
             .build());
   }
 
-  // TODO (rachelguan): this will be replaced by the method getRenewPrice below in PR#1592
-  /** Returns a new renew price for the pricer. */
-  @SuppressWarnings("unused")
-  FeesAndCredits getRenewPrice(Registry registry, String domainName, DateTime dateTime, int years)
-      throws EppException {
-    DomainPrices domainPrices = getPricesForDomainName(domainName, dateTime);
-    BigDecimal renewCost = domainPrices.getRenewCost().multipliedBy(years).getAmount();
-    return customLogic.customizeRenewPrice(
-        RenewPriceParameters.newBuilder()
-            .setFeesAndCredits(
-                new FeesAndCredits.Builder()
-                    .setCurrency(registry.getCurrency())
-                    .addFeeOrCredit(Fee.create(renewCost, FeeType.RENEW, domainPrices.isPremium()))
-                    .build())
-            .setRegistry(registry)
-            .setDomainName(InternetDomainName.from(domainName))
-            .setAsOfDate(dateTime)
-            .setYears(years)
-            .build());
-  }
-
   /** Returns a new renewal cost for the pricer. */
-  @SuppressWarnings("unused")
   FeesAndCredits getRenewPrice(
       Registry registry,
       String domainName,
@@ -138,20 +115,30 @@ public final class DomainPricingLogic {
       @Nullable Recurring recurringBillingEvent)
       throws EppException {
     checkArgument(years > 0, "Number of years must be positive");
-    Money renewCost = PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
-    if (recurringBillingEvent != null) {
+    Money renewCost;
+    boolean isRenewCostPremiumPrice;
+    // recurring billing event is null if the domain is still available. Billing events are created
+    // in the process of domain creation.
+    if (recurringBillingEvent == null) {
+      DomainPrices domainPrices = getPricesForDomainName(domainName, dateTime);
+      renewCost = domainPrices.getRenewCost().multipliedBy(years);
+      isRenewCostPremiumPrice = domainPrices.isPremium();
+    } else {
       switch (recurringBillingEvent.getRenewalPriceBehavior()) {
         case DEFAULT:
-          renewCost = PricingEngineProxy.getDomainRenewCost(domainName, dateTime, years);
+          DomainPrices domainPrices = getPricesForDomainName(domainName, dateTime);
+          renewCost = domainPrices.getRenewCost().multipliedBy(years);
+          isRenewCostPremiumPrice = domainPrices.isPremium();
           break;
           // if the renewal price behavior is specified, then the renewal price should be the same
           // as the creation price, which is stored in the billing event as the renewal price
         case SPECIFIED:
-          checkArgument(
-              recurringBillingEvent.getRenewalPrice().isPresent(),
+          checkArgumentPresent(
+              recurringBillingEvent.getRenewalPrice(),
               "Unexpected behavior: renewal price cannot be null when renewal behavior is"
                   + " SPECIFIED");
           renewCost = recurringBillingEvent.getRenewalPrice().get().multipliedBy(years);
+          isRenewCostPremiumPrice = false;
           break;
           // if the renewal price behavior is nonpremium, it means that the domain should be renewed
           // at standard price of domains at the time, even if the domain is premium
@@ -160,6 +147,7 @@ public final class DomainPricingLogic {
               Registry.get(getTldFromDomainName(domainName))
                   .getStandardRenewCost(dateTime)
                   .multipliedBy(years);
+          isRenewCostPremiumPrice = false;
           break;
         default:
           throw new IllegalArgumentException(
@@ -174,10 +162,7 @@ public final class DomainPricingLogic {
                 new FeesAndCredits.Builder()
                     .setCurrency(renewCost.getCurrencyUnit())
                     .addFeeOrCredit(
-                        Fee.create(
-                            renewCost.getAmount(),
-                            FeeType.RENEW,
-                            PricingEngineProxy.isDomainPremium(domainName, dateTime)))
+                        Fee.create(renewCost.getAmount(), FeeType.RENEW, isRenewCostPremiumPrice))
                     .build())
             .setRegistry(registry)
             .setDomainName(InternetDomainName.from(domainName))
