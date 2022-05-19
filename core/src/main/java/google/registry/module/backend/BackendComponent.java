@@ -26,6 +26,7 @@ import google.registry.dns.writer.VoidDnsWriterModule;
 import google.registry.export.DriveModule;
 import google.registry.export.datastore.DatastoreAdminModule;
 import google.registry.export.sheet.SheetsServiceModule;
+import google.registry.flows.DomainPricingLogicModule;
 import google.registry.flows.ServerTridProviderModule;
 import google.registry.flows.custom.CustomLogicFactoryModule;
 import google.registry.groups.DirectoryModule;
@@ -63,6 +64,7 @@ import javax.inject.Singleton;
       CloudTasksUtilsModule.class,
       CredentialModule.class,
       CustomLogicFactoryModule.class,
+        DomainPricingLogicModule.class,
       DatastoreAdminModule.class,
       DatastoreServiceModule.class,
       DirectoryModule.class,
@@ -88,6 +90,7 @@ import javax.inject.Singleton;
       VoidDnsWriterModule.class,
       UtilsModule.class
     })
+
 interface BackendComponent {
   BackendRequestHandler requestHandler();
 

@@ -92,6 +92,8 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
 
   @Inject Clock clock;
   @Inject MapreduceRunner mrRunner;
+  @Inject
+  DomainPricingLogic pricingLogic;
 
   @Inject
   @Config("jdbcBatchSize")

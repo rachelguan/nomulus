@@ -51,10 +51,12 @@ import org.joda.time.DateTime;
  */
 public final class DomainPricingLogic {
 
-  @Inject DomainPricingCustomLogic customLogic;
+  DomainPricingCustomLogic customLogic;
 
   @Inject
-  DomainPricingLogic() {}
+  public DomainPricingLogic(DomainPricingCustomLogic customLogic) {
+    this.customLogic = customLogic;
+  }
 
   /**
    * Returns a new create price for the pricer.
@@ -105,7 +107,7 @@ public final class DomainPricingLogic {
   }
 
   /** Returns a new renewal cost for the pricer. */
-  FeesAndCredits getRenewPrice(
+  public FeesAndCredits getRenewPrice(
       Registry registry,
       String domainName,
       DateTime dateTime,
