@@ -18,10 +18,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static google.registry.util.DomainNameUtils.getTldFromDomainName;
 
+import google.registry.model.billing.BillingEvent.Recurring;
 import google.registry.model.pricing.PremiumPricingEngine;
 import google.registry.model.pricing.PremiumPricingEngine.DomainPrices;
 import google.registry.model.tld.Registry;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.joda.money.Money;
 import org.joda.time.DateTime;
 
@@ -40,10 +42,46 @@ public final class PricingEngineProxy {
     return getPricesForDomainName(domainName, priceTime).getCreateCost().multipliedBy(years);
   }
 
+  /** Returns the billing cost for renewing the specified domain name for one year. */
+  public static Money getDomainRenewPrice(
+      String domainName, DateTime priceTime, @Nullable Recurring recurringBillingEvent) {
+    return getDomainRenewCost(domainName, priceTime, 1, recurringBillingEvent);
+  }
+
   /** Returns the billing cost for renewing the specified domain name for this many years. */
   public static Money getDomainRenewCost(String domainName, DateTime priceTime, int years) {
     checkArgument(years > 0, "Number of years must be positive");
-    return getPricesForDomainName(domainName, priceTime).getRenewCost().multipliedBy(years);
+    return getDomainRenewCost(domainName, priceTime, years, null);
+  }
+
+  /** Returns the billing cost for renewing the specified domain name for this many years. */
+  public static Money getDomainRenewCost(
+      String domainName, DateTime priceTime, int years, @Nullable Recurring recurringBillingEvent) {
+    if (recurringBillingEvent == null) {
+      return getPricesForDomainName(domainName, priceTime).getRenewCost().multipliedBy(years);
+    }
+    checkArgument(years > 0, "Number of years must be positive");
+    Money renewPrice;
+    switch (recurringBillingEvent.getRenewalPriceBehavior()) {
+      case DEFAULT:
+        renewPrice = getPricesForDomainName(domainName, priceTime).getRenewCost();
+        break;
+      case SPECIFIED:
+        checkArgument(
+            recurringBillingEvent.getRenewalPrice().isPresent(),
+            "Unexpected behavior: renewal price cannot be null when renewal behavior is SPECIFIED");
+        renewPrice = recurringBillingEvent.getRenewalPrice().get();
+        break;
+      case NONPREMIUM:
+        renewPrice = Registry.get(getTldFromDomainName(domainName)).getStandardRenewCost(priceTime);
+        break;
+      default:
+        throw new IllegalArgumentException(
+            String.format(
+                "Unknown RenewalPriceBehavior enum value: %s",
+                recurringBillingEvent.getRenewalPriceBehavior()));
+    }
+    return renewPrice.multipliedBy(years);
   }
 
   /** Returns true if the specified domain name is premium. */
