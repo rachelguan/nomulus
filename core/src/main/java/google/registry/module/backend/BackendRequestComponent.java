@@ -59,7 +59,6 @@ import google.registry.export.UpdateSnapshotViewAction;
 import google.registry.export.UploadDatastoreBackupAction;
 import google.registry.export.sheet.SheetModule;
 import google.registry.export.sheet.SyncRegistrarsSheetAction;
-import google.registry.flows.DomainPricingLogicModule;
 import google.registry.flows.FlowComponent;
 import google.registry.flows.custom.CustomLogicModule;
 import google.registry.mapreduce.MapreduceModule;
@@ -103,7 +102,10 @@ import google.registry.tmch.TmchSmdrlAction;
       BillingModule.class,
       CloudDnsWriterModule.class,
       CronModule.class,
+<<<<<<< HEAD
       CustomLogicModule.class,
+=======
+>>>>>>> eca8905e6 (Remove attempt to inject)
       DnsCountQueryCoordinatorModule.class,
       DnsModule.class,
       DnsUpdateConfigModule.class,

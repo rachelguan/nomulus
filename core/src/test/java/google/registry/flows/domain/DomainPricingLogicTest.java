@@ -65,7 +65,7 @@ import org.mockito.Mock;
 /** Unit tests for {@link DomainPricingLogic}. */
 @DualDatabaseTest
 public class DomainPricingLogicTest {
-  DomainPricingLogic domainPricingLogic;
+  DomainPricingLogic domainPricingLogic = new DomainPricingLogic();
 
   @RegisterExtension
   public final AppEngineExtension appEngine =
@@ -82,8 +82,8 @@ public class DomainPricingLogicTest {
   void beforeEach() throws Exception {
     createTld("example");
     sessionMetadata = new HttpSessionMetadata(new FakeHttpSession());
-    domainPricingLogic = new DomainPricingLogic(
-        new DomainPricingCustomLogic(eppInput, sessionMetadata, flowMetadata));
+    domainPricingLogic.customLogic =
+        new DomainPricingCustomLogic(eppInput, sessionMetadata, flowMetadata);
     registry =
         persistResource(
             Registry.get("example")

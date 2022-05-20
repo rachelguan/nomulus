@@ -49,14 +49,16 @@ import org.joda.time.DateTime;
  * providing a {@link DomainPricingCustomLogic} implementation that operates on cross-TLD or per-TLD
  * logic.
  */
+<<<<<<< HEAD
+=======
+@FlowScope
+>>>>>>> eca8905e6 (Remove attempt to inject)
 public final class DomainPricingLogic {
 
-  DomainPricingCustomLogic customLogic;
+  @Inject DomainPricingCustomLogic customLogic;
 
   @Inject
-  public DomainPricingLogic(DomainPricingCustomLogic customLogic) {
-    this.customLogic = customLogic;
-  }
+  DomainPricingLogic() {}
 
   /**
    * Returns a new create price for the pricer.
@@ -107,13 +109,27 @@ public final class DomainPricingLogic {
   }
 
   /** Returns a new renewal cost for the pricer. */
-  public FeesAndCredits getRenewPrice(
+  FeesAndCredits getRenewPrice(
       Registry registry,
       String domainName,
       DateTime dateTime,
       int years,
       @Nullable Recurring recurringBillingEvent)
       throws EppException {
+    return customLogic.customizeRenewPrice(
+        RenewPriceParameters.newBuilder()
+            .setFeesAndCredits(
+                getNonCustomRenewPrice(domainName, dateTime, years, recurringBillingEvent))
+            .setRegistry(registry)
+            .setDomainName(InternetDomainName.from(domainName))
+            .setAsOfDate(dateTime)
+            .setYears(years)
+            .build());
+  }
+
+  /** Returns a new renewal cost of a domain with no customization. */
+  public static FeesAndCredits getNonCustomRenewPrice(
+      String domainName, DateTime dateTime, int years, @Nullable Recurring recurringBillingEvent) {
     checkArgument(years > 0, "Number of years must be positive");
     Money renewCost;
     boolean isRenewCostPremiumPrice;
@@ -156,19 +172,10 @@ public final class DomainPricingLogic {
                   recurringBillingEvent.getRenewalPriceBehavior()));
       }
     }
-    return customLogic.customizeRenewPrice(
-        RenewPriceParameters.newBuilder()
-            .setFeesAndCredits(
-                new FeesAndCredits.Builder()
-                    .setCurrency(renewCost.getCurrencyUnit())
-                    .addFeeOrCredit(
-                        Fee.create(renewCost.getAmount(), FeeType.RENEW, isRenewCostPremiumPrice))
-                    .build())
-            .setRegistry(registry)
-            .setDomainName(InternetDomainName.from(domainName))
-            .setAsOfDate(dateTime)
-            .setYears(years)
-            .build());
+    return new FeesAndCredits.Builder()
+        .setCurrency(renewCost.getCurrencyUnit())
+        .addFeeOrCredit(Fee.create(renewCost.getAmount(), FeeType.RENEW, isRenewCostPremiumPrice))
+        .build();
   }
 
   /** Returns a new restore price for the pricer. */
