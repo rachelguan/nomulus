@@ -28,7 +28,6 @@ import static google.registry.persistence.transaction.QueryComposer.Comparator.E
 import static google.registry.persistence.transaction.TransactionManagerFactory.jpaTm;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 import static google.registry.persistence.transaction.TransactionManagerUtil.transactIfJpaTm;
-import static google.registry.pricing.PricingEngineProxy.getDomainRenewCost;
 import static google.registry.util.CollectionUtils.union;
 import static google.registry.util.DateTimeUtils.START_OF_TIME;
 import static google.registry.util.DateTimeUtils.earliestOf;
@@ -44,6 +43,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Streams;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
+import google.registry.flows.EppException;
 import google.registry.flows.domain.DomainPricingLogic;
 import google.registry.mapreduce.MapreduceRunner;
 import google.registry.mapreduce.inputs.NullInput;
@@ -70,7 +70,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
-import org.joda.money.Money;
 import org.joda.time.DateTime;
 
 /**
@@ -182,8 +181,13 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
                         // expanded on subsequent runs).
                         continue;
                       }
-                      int billingEventsSaved =
-                          expandBillingEvent(recurring, executeTime, cursorTime, isDryRun);
+                      int billingEventsSaved;
+                      try {
+                        billingEventsSaved =
+                            expandBillingEvent(recurring, executeTime, cursorTime, isDryRun);
+                      } catch (EppException e) {
+                        billingEventsSaved = -batchBillingEventsSaved;
+                      }
                       batchBillingEventsSaved += billingEventsSaved;
                       if (billingEventsSaved > 0) {
                         expandedDomains.add(recurring.getTargetId());
@@ -258,8 +262,7 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
   }
 
   /** Mapper to expand {@link Recurring} billing events into synthetic {@link OneTime} events. */
-  public static class ExpandRecurringBillingEventsMapper
-      extends Mapper<Recurring, DateTime, DateTime> {
+  public class ExpandRecurringBillingEventsMapper extends Mapper<Recurring, DateTime, DateTime> {
 
     private static final long serialVersionUID = 8376442755556228455L;
 
@@ -291,11 +294,17 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
         getContext().incrementCounter("Recurring billing events ignored");
         return;
       }
-      int numBillingEventsSaved = 0;
+      int numBillingEventsSaved;
       try {
         numBillingEventsSaved =
             tm().transactNew(
-                    () -> expandBillingEvent(recurring, executeTime, cursorTime, isDryRun));
+                    () -> {
+                      try {
+                        return expandBillingEvent(recurring, executeTime, cursorTime, isDryRun);
+                      } catch (EppException e) {
+                        return -1;
+                      }
+                    });
       } catch (Throwable t) {
         getContext().incrementCounter("error: " + t.getClass().getSimpleName());
         getContext().incrementCounter(ERROR_COUNTER);
@@ -362,8 +371,9 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
     }
   }
 
-  private static int expandBillingEvent(
-      Recurring recurring, DateTime executeTime, DateTime cursorTime, boolean isDryRun) {
+  private int expandBillingEvent(
+      Recurring recurring, DateTime executeTime, DateTime cursorTime, boolean isDryRun)
+      throws EppException {
     ImmutableSet.Builder<OneTime> syntheticOneTimesBuilder = new ImmutableSet.Builder<>();
     final Registry tld = Registry.get(getTldFromDomainName(recurring.getTargetId()));
 
@@ -431,15 +441,15 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
       historyEntriesBuilder.add(historyEntry);
 
       DateTime eventTime = billingTime.minus(tld.getAutoRenewGracePeriodLength());
-      // Determine the cost for a one-year renewal.
-      Money renewCost = getDomainRenewCost(recurring.getTargetId(), eventTime, 1);
+
       syntheticOneTimesBuilder.add(
           new OneTime.Builder()
               .setBillingTime(billingTime)
               .setRegistrarId(recurring.getRegistrarId())
+              // Determine the cost for a one-year renewal.
               .setCost(
-                  DomainPricingLogic.getNonCustomRenewPrice(
-                          recurring.getTargetId(), eventTime, 1, recurring)
+                  domainPricingLogic
+                      .getRenewPrice(tld, recurring.getTargetId(), eventTime, 1, recurring)
                       .getRenewCost())
               .setEventTime(eventTime)
               .setFlags(union(recurring.getFlags(), Flag.SYNTHETIC))

@@ -102,10 +102,7 @@ import google.registry.tmch.TmchSmdrlAction;
       BillingModule.class,
       CloudDnsWriterModule.class,
       CronModule.class,
-<<<<<<< HEAD
       CustomLogicModule.class,
-=======
->>>>>>> eca8905e6 (Remove attempt to inject)
       DnsCountQueryCoordinatorModule.class,
       DnsModule.class,
       DnsUpdateConfigModule.class,
