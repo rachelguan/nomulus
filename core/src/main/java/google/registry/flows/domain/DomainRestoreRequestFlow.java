@@ -163,11 +163,14 @@ public final class DomainRestoreRequestFlow implements TransactionalFlow {
     // Always bill for the restore itself.
     entitiesToSave.add(
         createRestoreBillingEvent(domainHistoryKey, feesAndCredits.getRestoreCost(), now));
-
+    BillingEvent.Recurring existingBillingEvent =
+        tm().loadByKey(existingDomain.getAutorenewBillingEvent());
     BillingEvent.Recurring autorenewEvent =
         newAutorenewBillingEvent(existingDomain)
             .setEventTime(newExpirationTime)
             .setRecurrenceEndTime(END_OF_TIME)
+            .setRenewalPriceBehavior(existingBillingEvent.getRenewalPriceBehavior())
+            .setRenewalPrice(existingBillingEvent.getRenewalPrice().orElse(null))
             .setParent(domainHistoryKey)
             .build();
     PollMessage.Autorenew autorenewPollMessage =

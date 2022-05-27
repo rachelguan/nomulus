@@ -64,6 +64,7 @@ import google.registry.flows.domain.DomainRestoreRequestFlow.RestoreCommandInclu
 import google.registry.model.billing.BillingEvent;
 import google.registry.model.billing.BillingEvent.Flag;
 import google.registry.model.billing.BillingEvent.Reason;
+import google.registry.model.billing.BillingEvent.RenewalPriceBehavior;
 import google.registry.model.domain.DomainBase;
 import google.registry.model.domain.DomainHistory;
 import google.registry.model.domain.GracePeriod;
@@ -118,29 +119,55 @@ class DomainRestoreRequestFlowTest
 
   void persistPendingDeleteDomain() throws Exception {
     // The domain is now past what had been its expiration date at the time of deletion.
-    persistPendingDeleteDomain(clock.nowUtc().minusDays(5));
+    persistPendingDeleteDomain(
+        clock.nowUtc().minusDays(5), clock.nowUtc(), RenewalPriceBehavior.DEFAULT, null);
   }
 
   void persistPendingDeleteDomain(DateTime expirationTime) throws Exception {
+    persistPendingDeleteDomain(expirationTime, clock.nowUtc(), RenewalPriceBehavior.DEFAULT, null);
+  }
+
+  void persistPendingDeleteDomain(DateTime expirationTime, DateTime now) throws Exception {
+    persistPendingDeleteDomain(expirationTime, now, RenewalPriceBehavior.DEFAULT, null);
+  }
+
+  void persistPendingDeleteDomain(
+      DateTime expirationTime,
+      DateTime deletionTime,
+      RenewalPriceBehavior renewalPriceBehavior,
+      Money renewalPrice)
+      throws Exception {
     DomainBase domain = persistResource(newDomainBase(getUniqueIdFromCommand()));
-    HistoryEntry historyEntry =
+    DomainHistory historyEntry =
         persistResource(
             new DomainHistory.Builder()
                 .setType(HistoryEntry.Type.DOMAIN_DELETE)
-                .setModificationTime(clock.nowUtc())
+                .setModificationTime(deletionTime)
                 .setRegistrarId(domain.getCurrentSponsorRegistrarId())
                 .setDomain(domain)
+                .build());
+    BillingEvent.Recurring billingEvent =
+        persistResource(
+            new BillingEvent.Recurring.Builder()
+                .setReason(Reason.RENEW)
+                .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+                .setTargetId("example.tld")
+                .setRegistrarId("TheRegistrar")
+                .setEventTime(expirationTime)
+                .setRecurrenceEndTime(deletionTime)
+                .setParent(historyEntry)
                 .build());
     persistResource(
         domain
             .asBuilder()
+            .setAutorenewBillingEvent(billingEvent.createVKey())
             .setRegistrationExpirationTime(expirationTime)
-            .setDeletionTime(clock.nowUtc().plusDays(35))
+            .setDeletionTime(deletionTime.plusDays(35))
             .addGracePeriod(
                 GracePeriod.create(
                     GracePeriodStatus.REDEMPTION,
                     domain.getRepoId(),
-                    clock.nowUtc().plusDays(1),
+                    deletionTime.plusDays(1),
                     "TheRegistrar",
                     null))
             .setStatusValues(ImmutableSet.of(StatusValue.PENDING_DELETE))
@@ -148,7 +175,7 @@ class DomainRestoreRequestFlowTest
                 persistResource(
                         new PollMessage.OneTime.Builder()
                             .setRegistrarId("TheRegistrar")
-                            .setEventTime(clock.nowUtc().plusDays(5))
+                            .setEventTime(deletionTime.plusDays(5))
                             .setParent(historyEntry)
                             .build())
                     .createVKey())
@@ -174,12 +201,15 @@ class DomainRestoreRequestFlowTest
   void testSuccess_expiryStillInFuture_notExtended() throws Exception {
     setEppInput("domain_update_restore_request.xml", ImmutableMap.of("DOMAIN", "example.tld"));
     DateTime expirationTime = clock.nowUtc().plusYears(5).plusDays(45);
-    persistPendingDeleteDomain(expirationTime);
+    DateTime deletionTime = clock.nowUtc();
+    persistPendingDeleteDomain(expirationTime, deletionTime);
     assertTransactionalFlow(true);
     // Double check that we see a poll message in the future for when the delete happens.
     assertThat(getPollMessages("TheRegistrar", clock.nowUtc().plusMonths(1))).hasSize(1);
     runFlowAssertResponse(loadFile("generic_success_response.xml"));
     DomainBase domain = reloadResourceByForeignKey();
+    DomainHistory historyEntryDomainDelete =
+        getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_DELETE, DomainHistory.class);
     DomainHistory historyEntryDomainRestore =
         getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_RESTORE, DomainHistory.class);
     assertLastHistoryContainsResource(domain);
@@ -214,9 +244,23 @@ class DomainRestoreRequestFlowTest
             .setMsg("Domain was auto-renewed.")
             .setParent(historyEntryDomainRestore)
             .build());
-    // There should be a onetime for the restore and a new recurring billing event, but no renew
-    // onetime.
+    // There should be a onetime for the restore and two new recurring billing events, one for the
+    // pending delete, one for the restore, but no renew onetime.
     assertBillingEvents(
+        // When a domain is created, corresponding recurring billing event gets created as well.
+        // When there's a pending delete delete, the recurrence end time of the existing billing
+        // event gets modified from END_OF_TIME to the time pending delete request is sent.
+        // When the domain is being restored, the recurrence end time of the billing event is set to
+        // END_OF_TIME.
+        new BillingEvent.Recurring.Builder()
+            .setReason(Reason.RENEW)
+            .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+            .setTargetId("example.tld")
+            .setRegistrarId("TheRegistrar")
+            .setEventTime(expirationTime)
+            .setRecurrenceEndTime(deletionTime)
+            .setParent(historyEntryDomainDelete)
+            .build(),
         new BillingEvent.Recurring.Builder()
             .setReason(Reason.RENEW)
             .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
@@ -243,12 +287,15 @@ class DomainRestoreRequestFlowTest
     setEppInput("domain_update_restore_request.xml", ImmutableMap.of("DOMAIN", "example.tld"));
     DateTime expirationTime = clock.nowUtc().minusDays(20);
     DateTime newExpirationTime = expirationTime.plusYears(1);
-    persistPendingDeleteDomain(expirationTime);
+    DateTime deletionTime = clock.nowUtc();
+    persistPendingDeleteDomain(expirationTime, deletionTime);
     assertTransactionalFlow(true);
     // Double check that we see a poll message in the future for when the delete happens.
     assertThat(getPollMessages("TheRegistrar", clock.nowUtc().plusMonths(1))).hasSize(1);
     runFlowAssertResponse(loadFile("generic_success_response.xml"));
     DomainBase domain = reloadResourceByForeignKey();
+    DomainHistory historyEntryDomainDelete =
+        getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_DELETE, DomainHistory.class);
     DomainHistory historyEntryDomainRestore =
         getOnlyHistoryEntryOfType(domain, HistoryEntry.Type.DOMAIN_RESTORE, DomainHistory.class);
     assertLastHistoryContainsResource(domain);
@@ -283,9 +330,23 @@ class DomainRestoreRequestFlowTest
             .setMsg("Domain was auto-renewed.")
             .setParent(historyEntryDomainRestore)
             .build());
-    // There should be a bill for the restore and an explicit renew, along with a new recurring
-    // autorenew event.
+    // There should be a bill for the restore and an explicit renew, along with two recurring
+    // autorenew events - one for pending delete and one for restore.
     assertBillingEvents(
+        // When a domain is created, corresponding recurring billing event gets created as well.
+        // When there's a pending delete delete, the recurrence end time of the existing billing
+        // event gets modified from END_OF_TIME to the time pending delete request is sent.
+        // When the domain is being restored, the recurrence end time of the billing event is set to
+        // END_OF_TIME.
+        new BillingEvent.Recurring.Builder()
+            .setReason(Reason.RENEW)
+            .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+            .setTargetId("example.tld")
+            .setRegistrarId("TheRegistrar")
+            .setEventTime(expirationTime)
+            .setRecurrenceEndTime(deletionTime)
+            .setParent(historyEntryDomainDelete)
+            .build(),
         new BillingEvent.Recurring.Builder()
             .setReason(Reason.RENEW)
             .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
