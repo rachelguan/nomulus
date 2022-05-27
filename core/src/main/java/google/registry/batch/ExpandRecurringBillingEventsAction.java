@@ -43,7 +43,6 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Streams;
 import com.google.common.flogger.FluentLogger;
 import google.registry.config.RegistryConfig.Config;
-import google.registry.flows.EppException;
 import google.registry.flows.domain.DomainPricingLogic;
 import google.registry.mapreduce.MapreduceRunner;
 import google.registry.mapreduce.inputs.NullInput;
@@ -123,7 +122,8 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
           .setJobName("Expand Recurring billing events into synthetic OneTime events.")
           .setModuleName("backend")
           .runMapreduce(
-              new ExpandRecurringBillingEventsMapper(isDryRun, cursorTime, clock.nowUtc()),
+              new ExpandRecurringBillingEventsMapper(
+                  isDryRun, cursorTime, clock.nowUtc(), domainPricingLogic),
               new ExpandRecurringBillingEventsReducer(isDryRun, persistedCursorTime),
               // Add an extra shard that maps over a null recurring event (see the mapper for why).
               ImmutableList.of(
@@ -181,13 +181,9 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
                         // expanded on subsequent runs).
                         continue;
                       }
-                      int billingEventsSaved;
-                      try {
-                        billingEventsSaved =
-                            expandBillingEvent(recurring, executeTime, cursorTime, isDryRun);
-                      } catch (EppException e) {
-                        billingEventsSaved = -batchBillingEventsSaved;
-                      }
+                      int billingEventsSaved =
+                          expandBillingEvent(
+                              recurring, executeTime, cursorTime, isDryRun, domainPricingLogic);
                       batchBillingEventsSaved += billingEventsSaved;
                       if (billingEventsSaved > 0) {
                         expandedDomains.add(recurring.getTargetId());
@@ -262,19 +258,25 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
   }
 
   /** Mapper to expand {@link Recurring} billing events into synthetic {@link OneTime} events. */
-  public class ExpandRecurringBillingEventsMapper extends Mapper<Recurring, DateTime, DateTime> {
+  public static class ExpandRecurringBillingEventsMapper
+      extends Mapper<Recurring, DateTime, DateTime> {
 
     private static final long serialVersionUID = 8376442755556228455L;
 
     private final boolean isDryRun;
     private final DateTime cursorTime;
     private final DateTime executeTime;
+    private final DomainPricingLogic domainPricingLogic;
 
     public ExpandRecurringBillingEventsMapper(
-        boolean isDryRun, DateTime cursorTime, DateTime executeTime) {
+        boolean isDryRun,
+        DateTime cursorTime,
+        DateTime executeTime,
+        DomainPricingLogic domainPricingLogic) {
       this.isDryRun = isDryRun;
       this.cursorTime = cursorTime;
       this.executeTime = executeTime;
+      this.domainPricingLogic = domainPricingLogic;
     }
 
     @Override
@@ -294,17 +296,13 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
         getContext().incrementCounter("Recurring billing events ignored");
         return;
       }
-      int numBillingEventsSaved;
+      int numBillingEventsSaved = 0;
       try {
         numBillingEventsSaved =
             tm().transactNew(
-                    () -> {
-                      try {
-                        return expandBillingEvent(recurring, executeTime, cursorTime, isDryRun);
-                      } catch (EppException e) {
-                        return -1;
-                      }
-                    });
+                    () ->
+                        expandBillingEvent(
+                            recurring, executeTime, cursorTime, isDryRun, domainPricingLogic));
       } catch (Throwable t) {
         getContext().incrementCounter("error: " + t.getClass().getSimpleName());
         getContext().incrementCounter(ERROR_COUNTER);
@@ -371,9 +369,12 @@ public class ExpandRecurringBillingEventsAction implements Runnable {
     }
   }
 
-  private int expandBillingEvent(
-      Recurring recurring, DateTime executeTime, DateTime cursorTime, boolean isDryRun)
-      throws EppException {
+  private static int expandBillingEvent(
+      Recurring recurring,
+      DateTime executeTime,
+      DateTime cursorTime,
+      boolean isDryRun,
+      DomainPricingLogic domainPricingLogic) {
     ImmutableSet.Builder<OneTime> syntheticOneTimesBuilder = new ImmutableSet.Builder<>();
     final Registry tld = Registry.get(getTldFromDomainName(recurring.getTargetId()));
 

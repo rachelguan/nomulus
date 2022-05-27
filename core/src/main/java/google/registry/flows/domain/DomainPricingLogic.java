@@ -51,7 +51,7 @@ import org.joda.time.DateTime;
  */
 public final class DomainPricingLogic {
 
-  private DomainPricingCustomLogic customLogic;
+  private final DomainPricingCustomLogic customLogic;
 
   @Inject
   public DomainPricingLogic(DomainPricingCustomLogic customLogic) {
@@ -112,8 +112,7 @@ public final class DomainPricingLogic {
       String domainName,
       DateTime dateTime,
       int years,
-      @Nullable Recurring recurringBillingEvent)
-      throws EppException {
+      @Nullable Recurring recurringBillingEvent) {
     checkArgument(years > 0, "Number of years must be positive");
     Money renewCost;
     boolean isRenewCostPremiumPrice;
