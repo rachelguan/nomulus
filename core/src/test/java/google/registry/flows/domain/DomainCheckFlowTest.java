@@ -867,17 +867,16 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   @TestOfyAndSql
   void testFeeExtension_premium_eap_v06_withRenewalOnRestore() throws Exception {
     createTld("example");
-    DomainBase domainBase = persistActiveDomain("rich.example");
-    setUpBillingEventForExistingDomain(domainBase);
-    setEppInput("domain_check_fee_premium_v06.xml");
-    clock.setTo(DateTime.parse("2010-01-01T10:00:00Z"));
     persistResource(
-        loadByEntity(domainBase)
+        persistActiveDomain("rich.example")
             .asBuilder()
             .setDeletionTime(clock.nowUtc().plusDays(25))
             .setRegistrationExpirationTime(clock.nowUtc().minusDays(1))
             .setStatusValues(ImmutableSet.of(StatusValue.PENDING_DELETE))
             .build());
+    persistPendingDeleteDomain("rich.example");
+    setEppInput("domain_check_fee_premium_v06.xml");
+    clock.setTo(DateTime.parse("2010-01-01T10:00:00Z"));
     persistResource(
         Registry.get("example")
             .asBuilder()
@@ -947,7 +946,7 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   void testFeeExtension_premiumLabels_v12_withRenewalOnRestore() throws Exception {
     createTld("example");
     setEppInput("domain_check_fee_premium_v12.xml");
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("rich.example"));
+    persistPendingDeleteDomain("rich.example");
     runFlowAssertResponse(loadFile("domain_check_fee_premium_response_v12_with_renewal.xml"));
   }
 
@@ -1107,10 +1106,10 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
             .setReservedLists(createReservedList())
             .setPremiumList(persistPremiumList("tld", USD, "premiumcollision,USD 70"))
             .build());
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("reserved.tld"));
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("allowedinsunrise.tld"));
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("collision.tld"));
-    setUpBillingEventForExistingDomain(persistPendingDeleteDomain("premiumcollision.tld"));
+    persistPendingDeleteDomain("reserved.tld");
+    persistPendingDeleteDomain("allowedinsunrise.tld");
+    persistPendingDeleteDomain("collision.tld");
+    persistPendingDeleteDomain("premiumcollision.tld");
     setEppInput("domain_check_fee_reserved_v06.xml");
     runFlowAssertResponse(
         loadFile("domain_check_fee_reserved_sunrise_response_v06_with_renewals.xml"));
@@ -1421,12 +1420,34 @@ class DomainCheckFlowTest extends ResourceCheckFlowTestCase<DomainCheckFlow, Dom
   }
 
   private DomainBase persistPendingDeleteDomain(String domainName) {
+    DomainBase existingDomain =
+        persistResource(
+            newDomainBase(domainName)
+                .asBuilder()
+                .setDeletionTime(clock.nowUtc().plusDays(25))
+                .setRegistrationExpirationTime(clock.nowUtc().minusDays(1))
+                .setStatusValues(ImmutableSet.of(StatusValue.PENDING_DELETE))
+                .build());
+    DomainHistory historyEntry =
+        persistResource(
+            new DomainHistory.Builder()
+                .setDomain(existingDomain)
+                .setType(HistoryEntry.Type.DOMAIN_DELETE)
+                .setModificationTime(existingDomain.getCreationTime())
+                .setRegistrarId(existingDomain.getCreationRegistrarId())
+                .build());
+    BillingEvent.Recurring renewEvent =
+        persistResource(
+            new BillingEvent.Recurring.Builder()
+                .setReason(Reason.RENEW)
+                .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
+                .setTargetId(existingDomain.getDomainName())
+                .setRegistrarId("TheRegistrar")
+                .setEventTime(existingDomain.getCreationTime())
+                .setRecurrenceEndTime(clock.nowUtc())
+                .setParent(historyEntry)
+                .build());
     return persistResource(
-        newDomainBase(domainName)
-            .asBuilder()
-            .setDeletionTime(clock.nowUtc().plusDays(25))
-            .setRegistrationExpirationTime(clock.nowUtc().minusDays(1))
-            .setStatusValues(ImmutableSet.of(StatusValue.PENDING_DELETE))
-            .build());
+        existingDomain.asBuilder().setAutorenewBillingEvent(renewEvent.createVKey()).build());
   }
 }

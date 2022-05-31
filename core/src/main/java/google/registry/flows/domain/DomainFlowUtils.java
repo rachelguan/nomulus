@@ -633,7 +633,8 @@ public class DomainFlowUtils {
       DateTime currentDate,
       DomainPricingLogic pricingLogic,
       Optional<AllocationToken> allocationToken,
-      boolean isAvailable)
+      boolean isAvailable,
+      @Nullable Recurring recurringBillingEvent)
       throws EppException {
     DateTime now = currentDate;
     // Use the custom effective date specified in the fee check request, if there is one.
@@ -680,19 +681,10 @@ public class DomainFlowUtils {
         break;
       case RENEW:
         builder.setAvailIfSupported(true);
-        if (domain.isPresent()) {
-          fees =
-              pricingLogic
-                  .getRenewPrice(
-                      registry,
-                      domainNameString,
-                      now,
-                      years,
-                      tm().transact(() -> tm().loadByKey(domain.get().getAutorenewBillingEvent())))
-                  .getFees();
-        } else {
-          fees = pricingLogic.getRenewPrice(registry, domainNameString, now, years, null).getFees();
-        }
+        fees =
+            pricingLogic
+                .getRenewPrice(registry, domainNameString, now, years, recurringBillingEvent)
+                .getFees();
         break;
       case RESTORE:
         // The minimum allowable period per the EPP spec is 1, so, strangely, 1 year still has to be

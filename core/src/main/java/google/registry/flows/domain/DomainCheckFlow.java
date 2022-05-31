@@ -31,6 +31,7 @@ import static google.registry.flows.domain.DomainFlowUtils.validateDomainNameWit
 import static google.registry.flows.domain.DomainFlowUtils.verifyNotInPredelegation;
 import static google.registry.model.tld.Registry.TldState.START_DATE_SUNRISE;
 import static google.registry.model.tld.label.ReservationType.getTypeOfHighestSeverity;
+import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -267,16 +268,21 @@ public final class DomainCheckFlow implements Flow {
     for (FeeCheckCommandExtensionItem feeCheckItem : feeCheck.getItems()) {
       for (String domainName : getDomainNamesToCheckForFee(feeCheckItem, domainNames.keySet())) {
         FeeCheckResponseExtensionItem.Builder<?> builder = feeCheckItem.createResponseBuilder();
+        Optional<DomainBase> domainBase =
+            Optional.ofNullable((DomainBase) domainObjs.get(domainName));
         handleFeeRequest(
             feeCheckItem,
             builder,
             domainNames.get(domainName),
-            Optional.ofNullable((DomainBase) domainObjs.get(domainName)),
+            domainBase,
             feeCheck.getCurrency(),
             now,
             pricingLogic,
             allocationToken,
-            availableDomains.contains(domainName));
+            availableDomains.contains(domainName),
+            domainBase.isPresent()
+                ? tm().transact(() -> tm().loadByKey(domainBase.get().getAutorenewBillingEvent()))
+                : null);
         responseItems.add(builder.setDomainNameIfSupported(domainName).build());
       }
     }
