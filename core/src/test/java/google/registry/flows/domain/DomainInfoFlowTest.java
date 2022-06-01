@@ -916,9 +916,6 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "1"));
     persistTestEntities("example.tld", false);
     setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
-    System.out.println(
-        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
-            .getRenewalPriceBehavior());
     doSuccessfulTest(
         "domain_info_fee_response.xml",
         false,
@@ -940,9 +937,6 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "3"));
     persistTestEntities("example.tld", false);
     setUpBillingEventForExistingDomain(NONPREMIUM, null);
-    System.out.println(
-        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
-            .getRenewalPriceBehavior());
     doSuccessfulTest(
         "domain_info_fee_response.xml",
         false,
@@ -964,9 +958,6 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "3"));
     persistTestEntities("example.tld", false);
     setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
-    System.out.println(
-        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
-            .getRenewalPriceBehavior());
     doSuccessfulTest(
         "domain_info_fee_response.xml",
         false,
@@ -983,9 +974,6 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
             SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "1"));
     persistTestEntities("example.tld", false);
     setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
-    System.out.println(
-        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
-            .getRenewalPriceBehavior());
     doSuccessfulTest(
         "domain_info_fee_response.xml",
         false,
