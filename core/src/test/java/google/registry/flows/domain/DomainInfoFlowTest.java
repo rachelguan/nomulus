@@ -17,6 +17,8 @@ package google.registry.flows.domain;
 import static com.google.common.io.BaseEncoding.base16;
 import static com.google.common.truth.Truth.assertThat;
 import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.DEFAULT;
+import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.NONPREMIUM;
+import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.SPECIFIED;
 import static google.registry.model.tld.Registry.TldState.QUIET_PERIOD;
 import static google.registry.persistence.transaction.TransactionManagerFactory.tm;
 import static google.registry.testing.DatabaseHelper.assertNoBillingEvents;
@@ -24,11 +26,13 @@ import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.newDomainBase;
 import static google.registry.testing.DatabaseHelper.persistActiveContact;
 import static google.registry.testing.DatabaseHelper.persistActiveHost;
+import static google.registry.testing.DatabaseHelper.persistPremiumList;
 import static google.registry.testing.DatabaseHelper.persistResource;
 import static google.registry.testing.EppExceptionSubject.assertAboutEppExceptions;
 import static google.registry.testing.TestDataHelper.updateSubstitutions;
 import static google.registry.util.DateTimeUtils.END_OF_TIME;
 import static google.registry.util.DateTimeUtils.START_OF_TIME;
+import static org.joda.money.CurrencyUnit.USD;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.common.base.Predicates;
@@ -51,6 +55,7 @@ import google.registry.model.billing.BillingEvent;
 import google.registry.model.billing.BillingEvent.Flag;
 import google.registry.model.billing.BillingEvent.Reason;
 import google.registry.model.billing.BillingEvent.Recurring;
+import google.registry.model.billing.BillingEvent.RenewalPriceBehavior;
 import google.registry.model.contact.ContactAuthInfo;
 import google.registry.model.contact.ContactResource;
 import google.registry.model.domain.DesignatedContact;
@@ -74,6 +79,8 @@ import google.registry.testing.ReplayExtension;
 import google.registry.testing.SetClockExtension;
 import google.registry.testing.TestOfyAndSql;
 import google.registry.testing.TestOfyOnly;
+import javax.annotation.Nullable;
+import org.joda.money.Money;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
@@ -205,6 +212,11 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
 
   /** sets up a sample recurring billing event as part of the domain creation process. */
   private void setUpBillingEventForExistingDomain() {
+    setUpBillingEventForExistingDomain(DEFAULT, null);
+  }
+
+  private void setUpBillingEventForExistingDomain(
+      @Nullable RenewalPriceBehavior renewalPriceBehavior, @Nullable Money renwealPrice) {
     DomainHistory historyEntry =
         persistResource(
             new DomainHistory.Builder()
@@ -217,13 +229,13 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
         persistResource(
             new BillingEvent.Recurring.Builder()
                 .setParent(historyEntry)
+                .setRenewalPrice(renwealPrice)
+                .setRenewalPriceBehavior(renewalPriceBehavior)
                 .setRegistrarId(domain.getCreationRegistrarId())
                 .setEventTime(domain.getCreationTime())
                 .setFlags(ImmutableSet.of(Flag.AUTO_RENEW))
                 .setId(2L)
                 .setReason(Reason.RENEW)
-                .setRenewalPriceBehavior(DEFAULT)
-                .setRenewalPrice(null)
                 .setRecurrenceEndTime(END_OF_TIME)
                 .setTargetId(domain.getDomainName())
                 .build());
@@ -866,6 +878,118 @@ class DomainInfoFlowTest extends ResourceFlowTestCase<DomainInfoFlow, DomainBase
         "domain_info_fee_premium_response.xml",
         false,
         ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew"),
+        true);
+  }
+
+  @TestOfyAndSql
+  void testFeeExtension_renewCommandPremium_anchorTenant() throws Exception {
+    createTld("tld");
+    persistResource(
+        Registry.get("tld")
+            .asBuilder()
+            .setPremiumList(persistPremiumList("tld", USD, "example,USD 70"))
+            .build());
+    setEppInput(
+        "domain_info_fee.xml",
+        updateSubstitutions(
+            SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "1"));
+    persistTestEntities("example.tld", false);
+    setUpBillingEventForExistingDomain(NONPREMIUM, null);
+    doSuccessfulTest(
+        "domain_info_fee_response.xml",
+        false,
+        ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew", "FEE", "11.0", "PERIOD", "1"),
+        true);
+  }
+
+  @TestOfyAndSql
+  void testFeeExtension_renewCommandPremium_internalRegistration() throws Exception {
+    createTld("tld");
+    persistResource(
+        Registry.get("tld")
+            .asBuilder()
+            .setPremiumList(persistPremiumList("tld", USD, "example,USD 70"))
+            .build());
+    setEppInput(
+        "domain_info_fee.xml",
+        updateSubstitutions(
+            SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "1"));
+    persistTestEntities("example.tld", false);
+    setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
+    System.out.println(
+        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
+            .getRenewalPriceBehavior());
+    doSuccessfulTest(
+        "domain_info_fee_response.xml",
+        false,
+        ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew", "FEE", "3.0", "PERIOD", "1"),
+        true);
+  }
+
+  @TestOfyAndSql
+  void testFeeExtension_renewCommandPremium_anchorTenant_multiYear() throws Exception {
+    createTld("tld");
+    persistResource(
+        Registry.get("tld")
+            .asBuilder()
+            .setPremiumList(persistPremiumList("tld", USD, "example,USD 70"))
+            .build());
+    setEppInput(
+        "domain_info_fee.xml",
+        updateSubstitutions(
+            SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "3"));
+    persistTestEntities("example.tld", false);
+    setUpBillingEventForExistingDomain(NONPREMIUM, null);
+    System.out.println(
+        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
+            .getRenewalPriceBehavior());
+    doSuccessfulTest(
+        "domain_info_fee_response.xml",
+        false,
+        ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew", "FEE", "33.0", "PERIOD", "3"),
+        true);
+  }
+
+  @TestOfyAndSql
+  void testFeeExtension_renewCommandPremium_internalRegistration_multiYear() throws Exception {
+    createTld("tld");
+    persistResource(
+        Registry.get("tld")
+            .asBuilder()
+            .setPremiumList(persistPremiumList("tld", USD, "example,USD 70"))
+            .build());
+    setEppInput(
+        "domain_info_fee.xml",
+        updateSubstitutions(
+            SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "3"));
+    persistTestEntities("example.tld", false);
+    setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
+    System.out.println(
+        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
+            .getRenewalPriceBehavior());
+    doSuccessfulTest(
+        "domain_info_fee_response.xml",
+        false,
+        ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew", "FEE", "9.0", "PERIOD", "3"),
+        true);
+  }
+
+  @TestOfyAndSql
+  void testFeeExtension_renewCommandStandard_internalRegistration() throws Exception {
+    createTld("tld");
+    setEppInput(
+        "domain_info_fee.xml",
+        updateSubstitutions(
+            SUBSTITUTION_BASE, "NAME", "example.tld", "COMMAND", "renew", "PERIOD", "1"));
+    persistTestEntities("example.tld", false);
+    setUpBillingEventForExistingDomain(SPECIFIED, Money.of(USD, 3));
+    System.out.println(
+        tm().transact(() -> tm().loadByKey(domain.getAutorenewBillingEvent()))
+            .getRenewalPriceBehavior());
+    doSuccessfulTest(
+        "domain_info_fee_response.xml",
+        false,
+        ImmutableMap.of("COMMAND", "renew", "DESCRIPTION", "renew", "FEE", "3.0", "PERIOD", "1"),
         true);
   }
 
