@@ -696,7 +696,10 @@ public class DomainFlowUtils {
         // restore because they can't be restored in the first place.
         boolean isExpired =
             domain.isPresent() && domain.get().getRegistrationExpirationTime().isBefore(now);
-        fees = pricingLogic.getRestorePrice(registry, domainNameString, now, isExpired).getFees();
+        fees =
+            pricingLogic
+                .getRestorePrice(registry, domainNameString, now, isExpired, null)
+                .getFees();
         break;
       case TRANSFER:
         if (years != 1) {

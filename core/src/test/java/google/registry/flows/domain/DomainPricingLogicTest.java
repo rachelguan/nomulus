@@ -21,6 +21,7 @@ import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.DE
 import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.NONPREMIUM;
 import static google.registry.model.billing.BillingEvent.RenewalPriceBehavior.SPECIFIED;
 import static google.registry.model.domain.fee.BaseFee.FeeType.RENEW;
+import static google.registry.model.domain.fee.BaseFee.FeeType.RESTORE;
 import static google.registry.model.reporting.HistoryEntry.Type.DOMAIN_CREATE;
 import static google.registry.testing.DatabaseHelper.createTld;
 import static google.registry.testing.DatabaseHelper.newDomainBase;
@@ -401,5 +402,275 @@ public class DomainPricingLogicTest {
                 domainPricingLogic.getRenewPrice(
                     registry, "standard.example", clock.nowUtc(), -1, null));
     assertThat(thrown).hasMessageThat().isEqualTo("Number of years must be positive");
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isExpired_default_noBilling_defaultRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry, "standard.example", clock.nowUtc(), true, null))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 10).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isNotExpired_default_noBilling()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry, "standard.example", clock.nowUtc(), false, null))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isExpired_default_noBilling_premiumRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry, "premium.example", clock.nowUtc(), true, null))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 100).getAmount(), RENEW, true))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isNotExpired_default_noBilling()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry, "premium.example", clock.nowUtc(), false, null))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isExpired_default_defaultRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", DEFAULT, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 10).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isNotExpired_default() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", DEFAULT, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isExpired_default_premiumRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "premium.example", DEFAULT, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 100).getAmount(), RENEW, true))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isNotExpired_default() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "premium.example", DEFAULT, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isExpired_nonPremium_nonPremiumRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", NONPREMIUM, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 10).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isNotExpired_nonPremium() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", NONPREMIUM, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isExpired_nonPremium_nonPremiumRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "premium.example", NONPREMIUM, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 10).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isNotExpired_nonPremium() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "premium.example", NONPREMIUM, Optional.empty())))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isExpired_specified_specifiedRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", SPECIFIED, Optional.of(Money.of(USD, 1.23)))))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 1.23).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_standardDomain_isNotExpired_specified() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "standard.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", SPECIFIED, Optional.of(Money.of(USD, 1.23)))))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isExpired_specified_specifiedRenewalPrice()
+      throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                true,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", SPECIFIED, Optional.of(Money.of(USD, 1.23)))))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .addFeeOrCredit(Fee.create(Money.of(USD, 1.23).getAmount(), RENEW, false))
+                .build());
+  }
+
+  @TestOfyAndSql
+  void testGetDomainRestorePrice_premiumDomain_isNotExpired_specified() throws EppException {
+    assertThat(
+            domainPricingLogic.getRestorePrice(
+                registry,
+                "premium.example",
+                clock.nowUtc(),
+                false,
+                persistDomainAndSetRecurringBillingEvent(
+                    "standard.example", SPECIFIED, Optional.of(Money.of(USD, 1.23)))))
+        .isEqualTo(
+            new FeesAndCredits.Builder()
+                .setCurrency(USD)
+                .addFeeOrCredit(Fee.create(Money.of(USD, 17).getAmount(), RESTORE, false))
+                .build());
   }
 }

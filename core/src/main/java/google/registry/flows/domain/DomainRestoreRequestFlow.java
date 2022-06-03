@@ -144,7 +144,7 @@ public final class DomainRestoreRequestFlow implements TransactionalFlow {
     boolean isExpired = existingDomain.getRegistrationExpirationTime().isBefore(now);
     FeesAndCredits feesAndCredits =
         pricingLogic.getRestorePrice(
-            Registry.get(existingDomain.getTld()), targetId, now, isExpired);
+            Registry.get(existingDomain.getTld()), targetId, now, isExpired, null);
     Optional<FeeUpdateCommandExtension> feeUpdate =
         eppInput.getSingleExtension(FeeUpdateCommandExtension.class);
     verifyRestoreAllowed(command, existingDomain, feeUpdate, feesAndCredits, now);
