@@ -703,7 +703,7 @@ public class DomainFlowUtils {
           throw new TransfersAreAlwaysForOneYearException();
         }
         builder.setAvailIfSupported(true);
-        fees = pricingLogic.getTransferPrice(registry, domainNameString, now).getFees();
+        fees = pricingLogic.getTransferPrice(registry, domainNameString, now, null).getFees();
         break;
       case UPDATE:
         builder.setAvailIfSupported(true);
